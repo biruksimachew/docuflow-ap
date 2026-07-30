@@ -19,9 +19,19 @@ $readiness = Invoke-RestMethod `
 $readiness | ConvertTo-Json -Depth 5
 
 Write-Host ""
+Write-Host "===== TESSERACT INSTALLATION ====="
+
+docker compose exec -T api tesseract --version
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Tesseract is unavailable."
+}
+
+Write-Host ""
 Write-Host "===== AUTOMATED TESTS ====="
 
-docker compose exec -T api pytest -q
+docker compose exec -T api `
+    pytest -q tests -p no:cacheprovider
 
 if ($LASTEXITCODE -ne 0) {
     throw "Automated tests failed."
@@ -42,11 +52,22 @@ Write-Host $taskResult
 Write-Host ""
 Write-Host "===== INVOICE INTAKE ====="
 
-docker compose exec -T api python scripts/test_intake.py
+docker compose exec -T api `
+    python scripts/test_intake.py
 
 if ($LASTEXITCODE -ne 0) {
     throw "Invoice intake test failed."
 }
 
 Write-Host ""
-Write-Host "All DocuFlow AP intake checks passed."
+Write-Host "===== LOCAL OCR PROVIDER ====="
+
+docker compose exec -T api `
+    python -m scripts.check_ocr_provider
+
+if ($LASTEXITCODE -ne 0) {
+    throw "OCR provider test failed."
+}
+
+Write-Host ""
+Write-Host "All DocuFlow AP OCR foundation checks passed."

@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     s3_region: str = "us-east-1"
     s3_bucket_source_invoices: str = "source-invoices"
 
+    ocr_provider: str = "tesseract"
+    ocr_language: str = "eng"
+
     @property
     def allowed_file_type_set(self) -> set[str]:
         return {
