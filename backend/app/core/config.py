@@ -1,4 +1,4 @@
-﻿from functools import lru_cache
+from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -27,6 +27,27 @@ class Settings(BaseSettings):
     redis_url: str = "redis://redis:6379/0"
     celery_broker_url: str = "redis://redis:6379/0"
     celery_result_backend: str = "redis://redis:6379/1"
+
+    max_upload_size_mb: int = 20
+    max_document_pages: int = 30
+
+    allowed_file_types: str = (
+        "application/pdf,image/jpeg,image/png"
+    )
+
+    s3_endpoint_url: str = "http://minio:9000"
+    s3_access_key: str = "docuflow"
+    s3_secret_key: str = "docuflow-local-secret"
+    s3_region: str = "us-east-1"
+    s3_bucket_source_invoices: str = "source-invoices"
+
+    @property
+    def allowed_file_type_set(self) -> set[str]:
+        return {
+            value.strip().lower()
+            for value in self.allowed_file_types.split(",")
+            if value.strip()
+        }
 
 
 @lru_cache

@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Stop"
 
 Write-Host ""
 Write-Host "===== API LIVENESS ====="
@@ -40,4 +40,13 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host $taskResult
 
 Write-Host ""
-Write-Host "All DocuFlow AP foundation checks passed."
+Write-Host "===== INVOICE INTAKE ====="
+
+docker compose exec -T api python scripts/test_intake.py
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Invoice intake test failed."
+}
+
+Write-Host ""
+Write-Host "All DocuFlow AP intake checks passed."

@@ -1,8 +1,9 @@
-﻿from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.routes.documents import router as documents_router
 from app.api.routes.health import router as health_router
 from app.core.config import settings
 from app.db.database import engine
@@ -16,16 +17,21 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title=settings.app_name,
-    version="0.1.0",
+    version="0.2.0",
     description=(
-        "Invoice OCR, deterministic validation, matching, "
-        "human review and export API."
+        "Invoice intake, OCR, deterministic validation, "
+        "matching, human review and export API."
     ),
     debug=settings.app_debug,
     lifespan=lifespan,
 )
 
 app.include_router(health_router)
+
+app.include_router(
+    documents_router,
+    prefix="/api/v1",
+)
 
 
 @app.get("/", tags=["Application"])
@@ -36,4 +42,5 @@ async def root() -> dict[str, str]:
         "documentation": "/docs",
         "health": "/health",
         "readiness": "/health/ready",
+        "invoice_upload": "/api/v1/documents/upload",
     }

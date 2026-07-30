@@ -1,4 +1,4 @@
-﻿services:
+services:
   redis:
     image: redis:7-alpine
     container_name: docuflow-redis
@@ -12,10 +12,56 @@
     volumes:
       - docuflow_redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test:
+        - CMD
+        - redis-cli
+        - ping
       interval: 5s
       timeout: 3s
       retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: docuflow-minio
+    restart: unless-stopped
+    command:
+      - server
+      - /data
+      - --console-address
+      - ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-docuflow}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-docuflow-local-secret}
+    ports:
+      - "9000:9000"
+      - "9002:9001"
+    volumes:
+      - docuflow_minio_data:/data
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: docuflow-minio-init
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_started
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-docuflow}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-docuflow-local-secret}
+      SOURCE_BUCKET: ${S3_BUCKET_SOURCE_INVOICES:-source-invoices}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        until /usr/bin/mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"; do
+          echo "Waiting for MinIO..."
+          sleep 2
+        done
+
+        /usr/bin/mc mb --ignore-existing "local/$$SOURCE_BUCKET"
+        /usr/bin/mc anonymous set none "local/$$SOURCE_BUCKET"
+
+        echo "MinIO source bucket is ready."
 
   api:
     build:
@@ -38,11 +84,14 @@
     volumes:
       - ./backend/app:/app/app
       - ./backend/tests:/app/tests
+      - ./scripts:/app/scripts
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
       redis:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
 
   worker:
     build:
@@ -67,6 +116,9 @@
     depends_on:
       redis:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
 
 volumes:
   docuflow_redis_data:
+  docuflow_minio_data:
