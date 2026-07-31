@@ -12,6 +12,9 @@ from app.api.routes.extractions import (
 from app.api.routes.health import (
     router as health_router,
 )
+from app.api.routes.validations import (
+    router as validations_router,
+)
 from app.core.config import settings
 from app.db.database import engine
 
@@ -26,7 +29,7 @@ async def lifespan(
 
 app = FastAPI(
     title=settings.app_name,
-    version="0.5.0",
+    version="0.6.0",
     description=(
         "Invoice intake, preprocessing, OCR, "
         "canonical extraction, deterministic validation, "
@@ -50,6 +53,11 @@ app.include_router(
     prefix="/api/v1",
 )
 
+app.include_router(
+    validations_router,
+    prefix="/api/v1",
+)
+
 
 @app.get(
     "/",
@@ -70,5 +78,8 @@ async def root() -> dict[str, str]:
         ),
         "extraction_snapshot": (
             "/api/v1/documents/{document_id}/extraction"
+        ),
+        "validation_snapshot": (
+            "/api/v1/documents/{document_id}/validation"
         ),
     }

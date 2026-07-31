@@ -31,6 +31,9 @@ from app.services.processing.repository import (
     set_document_status,
     start_processing_run,
 )
+from app.services.validation.service import (
+    validate_and_persist_invoice,
+)
 
 
 class DocumentProcessingError(RuntimeError):
@@ -128,7 +131,9 @@ async def process_document_pipeline(
                     content=original_bytes,
                     metadata={
                         **artifact_metadata,
-                        "artifact-type": "original-page",
+                        "artifact-type": (
+                            "original-page"
+                        ),
                     },
                 )
             )
@@ -139,7 +144,9 @@ async def process_document_pipeline(
                     content=processed_bytes,
                     metadata={
                         **artifact_metadata,
-                        "artifact-type": "processed-page",
+                        "artifact-type": (
+                            "processed-page"
+                        ),
                     },
                 )
             )
@@ -151,11 +158,15 @@ async def process_document_pipeline(
                 original_storage_bucket=(
                     settings.s3_bucket_derived_pages
                 ),
-                original_storage_object_key=original_key,
+                original_storage_object_key=(
+                    original_key
+                ),
                 processed_storage_bucket=(
                     settings.s3_bucket_derived_pages
                 ),
-                processed_storage_object_key=processed_key,
+                processed_storage_object_key=(
+                    processed_key
+                ),
                 width_px=preprocessed.image.width,
                 height_px=preprocessed.image.height,
                 preprocessing_operations=list(
@@ -179,9 +190,15 @@ async def process_document_pipeline(
                 "processing normalized pages."
             ),
             payload={
-                "processing_run_id": processing_run_id,
-                "page_count": len(prepared_pages),
-                "provider": settings.ocr_provider,
+                "processing_run_id": (
+                    processing_run_id
+                ),
+                "page_count": len(
+                    prepared_pages
+                ),
+                "provider": (
+                    settings.ocr_provider
+                ),
             },
         )
 
@@ -198,7 +215,10 @@ async def process_document_pipeline(
         page_confidences: list[float] = []
         total_token_count = 0
 
-        for page_record, processed_image in prepared_pages:
+        for (
+            page_record,
+            processed_image,
+        ) in prepared_pages:
             result = await to_thread.run_sync(
                 provider.extract_page,
                 processed_image,
@@ -209,9 +229,14 @@ async def process_document_pipeline(
                 for token in result.tokens
             ]
 
-            total_token_count += len(tokens)
+            total_token_count += len(
+                tokens
+            )
 
-            if result.average_confidence is not None:
+            if (
+                result.average_confidence
+                is not None
+            ):
                 page_confidences.append(
                     result.average_confidence
                 )
@@ -252,7 +277,9 @@ async def process_document_pipeline(
                 "started from persisted OCR evidence."
             ),
             payload={
-                "processing_run_id": processing_run_id,
+                "processing_run_id": (
+                    processing_run_id
+                ),
                 "ocr_run_id": ocr_run_id,
                 "schema_version": "header-v1",
             },
@@ -261,8 +288,49 @@ async def process_document_pipeline(
         extraction_summary = (
             await extract_and_persist_header(
                 document_id=document_id,
-                processing_run_id=processing_run_id,
+                processing_run_id=(
+                    processing_run_id
+                ),
                 ocr_run_id=ocr_run_id,
+            )
+        )
+
+        invoice_extraction_id = (
+            extraction_summary[
+                "invoice_extraction_id"
+            ]
+        )
+
+        await set_document_status(
+            document_id=document_id,
+            status="VALIDATING",
+            event_type="DOCUMENT_VALIDATION_STARTED",
+            reason=(
+                "Authoritative deterministic header "
+                "controls started."
+            ),
+            payload={
+                "processing_run_id": (
+                    processing_run_id
+                ),
+                "invoice_extraction_id": (
+                    invoice_extraction_id
+                ),
+                "ruleset_version": (
+                    "header-rules-v1"
+                ),
+            },
+        )
+
+        validation_summary = (
+            await validate_and_persist_invoice(
+                document_id=document_id,
+                processing_run_id=(
+                    processing_run_id
+                ),
+                invoice_extraction_id=(
+                    invoice_extraction_id
+                ),
             )
         )
 
@@ -271,41 +339,62 @@ async def process_document_pipeline(
             document_id=document_id,
         )
 
+        blocking_rule_ids = (
+            validation_summary[
+                "blocking_rule_ids"
+            ]
+        )
+
         missing_required_fields = (
             extraction_summary[
                 "missing_required_fields"
             ]
         )
 
-        if missing_required_fields:
+        if blocking_rule_ids:
             review_reason = (
-                "Header extraction completed, but "
-                "one or more mandatory fields were not "
-                "reliably extracted."
+                "One or more authoritative "
+                "deterministic controls failed or "
+                "could not be proven."
+            )
+        elif missing_required_fields:
+            review_reason = (
+                "Required extracted fields are missing "
+                "and require human review."
             )
         else:
             review_reason = (
-                "Header extraction completed successfully. "
-                "Line-item extraction, deterministic rules, "
-                "duplicate control and purchase-order "
-                "matching are still pending."
+                "Header extraction and current "
+                "deterministic controls passed. "
+                "Line-item, duplicate, vendor and "
+                "purchase-order controls are still "
+                "pending."
             )
 
         await set_document_status(
             document_id=document_id,
             status="REVIEW_REQUIRED",
-            event_type="DOCUMENT_EXTRACTION_COMPLETED",
+            event_type="DOCUMENT_REVIEW_REQUIRED",
             reason=review_reason,
             payload={
-                "processing_run_id": processing_run_id,
+                "processing_run_id": (
+                    processing_run_id
+                ),
                 "ocr_run_id": ocr_run_id,
                 "invoice_extraction_id": (
-                    extraction_summary[
-                        "invoice_extraction_id"
+                    invoice_extraction_id
+                ),
+                "validation_run_id": (
+                    validation_summary[
+                        "validation_run_id"
                     ]
                 ),
-                "page_count": len(prepared_pages),
-                "token_count": total_token_count,
+                "page_count": len(
+                    prepared_pages
+                ),
+                "token_count": (
+                    total_token_count
+                ),
                 "document_ocr_confidence": (
                     document_ocr_confidence
                 ),
@@ -314,29 +403,48 @@ async def process_document_pipeline(
                         "header_confidence"
                     ]
                 ),
-                "extracted_field_count": (
-                    extraction_summary[
-                        "field_count"
-                    ]
-                ),
                 "missing_required_fields": (
                     missing_required_fields
                 ),
+                "validation_outcome": (
+                    validation_summary[
+                        "overall_outcome"
+                    ]
+                ),
+                "blocking_rule_ids": (
+                    blocking_rule_ids
+                ),
+                "pending_controls": [
+                    "VAL-03",
+                    "VAL-04",
+                    "business_duplicate",
+                    "vendor_identity",
+                    "purchase_order_match",
+                ],
             },
         )
 
         return {
             "status": "completed",
             "document_id": document_id,
-            "processing_run_id": processing_run_id,
+            "processing_run_id": (
+                processing_run_id
+            ),
             "ocr_run_id": ocr_run_id,
             "invoice_extraction_id": (
-                extraction_summary[
-                    "invoice_extraction_id"
+                invoice_extraction_id
+            ),
+            "validation_run_id": (
+                validation_summary[
+                    "validation_run_id"
                 ]
             ),
-            "page_count": len(prepared_pages),
-            "token_count": total_token_count,
+            "page_count": len(
+                prepared_pages
+            ),
+            "token_count": (
+                total_token_count
+            ),
             "document_ocr_confidence": (
                 document_ocr_confidence
             ),
@@ -353,12 +461,22 @@ async def process_document_pipeline(
             "missing_required_fields": (
                 missing_required_fields
             ),
+            "validation_outcome": (
+                validation_summary[
+                    "overall_outcome"
+                ]
+            ),
+            "blocking_rule_ids": (
+                blocking_rule_ids
+            ),
             "canonical_header": (
                 extraction_summary[
                     "canonical_header"
                 ]
             ),
-            "document_status": "REVIEW_REQUIRED",
+            "document_status": (
+                "REVIEW_REQUIRED"
+            ),
         }
 
     except Exception as exc:
@@ -371,7 +489,9 @@ async def process_document_pipeline(
 
             try:
                 await fail_processing_run(
-                    processing_run_id=processing_run_id,
+                    processing_run_id=(
+                        processing_run_id
+                    ),
                     error_code=type(exc).__name__,
                     error_message=str(exc)[:2000],
                 )

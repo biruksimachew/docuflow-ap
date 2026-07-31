@@ -1,3 +1,4 @@
+from decimal import Decimal
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -35,6 +36,14 @@ class Settings(BaseSettings):
         "application/pdf,image/jpeg,image/png"
     )
 
+    allowed_currencies: str = "USD"
+
+    validation_currency_tolerance: Decimal = Decimal(
+        "0.01"
+    )
+
+    invoice_future_tolerance_days: int = 7
+
     s3_endpoint_url: str = "http://minio:9000"
     s3_access_key: str = "docuflow"
     s3_secret_key: str = "docuflow-local-secret"
@@ -54,6 +63,14 @@ class Settings(BaseSettings):
         return {
             value.strip().lower()
             for value in self.allowed_file_types.split(",")
+            if value.strip()
+        }
+
+    @property
+    def allowed_currency_set(self) -> set[str]:
+        return {
+            value.strip().upper()
+            for value in self.allowed_currencies.split(",")
             if value.strip()
         }
 

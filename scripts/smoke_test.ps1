@@ -7,7 +7,8 @@ $liveness = Invoke-RestMethod `
     -Uri "http://localhost:8000/health" `
     -Method Get
 
-$liveness | ConvertTo-Json -Depth 5
+$liveness |
+    ConvertTo-Json -Depth 5
 
 Write-Host ""
 Write-Host "===== DEPENDENCY READINESS ====="
@@ -16,7 +17,8 @@ $readiness = Invoke-RestMethod `
     -Uri "http://localhost:8000/health/ready" `
     -Method Get
 
-$readiness | ConvertTo-Json -Depth 5
+$readiness |
+    ConvertTo-Json -Depth 5
 
 Write-Host ""
 Write-Host "===== TESSERACT INSTALLATION ====="
@@ -91,4 +93,14 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "All DocuFlow AP header extraction checks passed."
+Write-Host "===== DETERMINISTIC VALIDATION ====="
+
+docker compose exec -T api `
+    python -m scripts.check_deterministic_validation
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Deterministic validation test failed."
+}
+
+Write-Host ""
+Write-Host "All DocuFlow AP deterministic validation checks passed."
