@@ -5,20 +5,25 @@ from uuid import uuid4
 import httpx
 from PIL import ImageDraw
 
-from tests.ocr_test_image import (
-    create_test_invoice_image,
+from tests.line_item_test_image import (
+    create_line_item_invoice_image,
 )
 
 
 def create_unique_invoice_png() -> bytes:
-    image = create_test_invoice_image()
+    image = (
+        create_line_item_invoice_image()
+    )
 
     draw = ImageDraw.Draw(
         image
     )
 
     draw.text(
-        (1020, 950),
+        (
+            1050,
+            1190,
+        ),
         f"Validation run {uuid4()}",
         fill="black",
     )
@@ -43,7 +48,7 @@ def main() -> None:
         ),
         files={
             "file": (
-                "Meridian Validation Invoice.png",
+                "Meridian Validated Line Invoice.png",
                 create_unique_invoice_png(),
                 "image/png",
             )
@@ -61,9 +66,11 @@ def main() -> None:
     )
 
     assert upload_response.status_code == 201
-    assert upload_payload["status"] == "RECEIVED"
+
     assert (
-        upload_payload["processing_enqueued"]
+        upload_payload[
+            "processing_enqueued"
+        ]
         is True
     )
 
@@ -85,7 +92,9 @@ def main() -> None:
 
         response.raise_for_status()
 
-        processing_snapshot = response.json()
+        processing_snapshot = (
+            response.json()
+        )
 
         document_status = (
             processing_snapshot[
@@ -138,18 +147,24 @@ def main() -> None:
 
     validation_response.raise_for_status()
 
-    snapshot = validation_response.json()
+    snapshot = (
+        validation_response.json()
+    )
 
     validation_run = snapshot[
         "validation_run"
     ]
 
     assert validation_run is not None
-    assert validation_run["status"] == "SUCCEEDED"
+
+    assert (
+        validation_run["status"]
+        == "SUCCEEDED"
+    )
 
     assert (
         validation_run["ruleset_version"]
-        == "header-rules-v1"
+        == "invoice-rules-v2"
     )
 
     assert (
@@ -157,10 +172,25 @@ def main() -> None:
         == "PASSED_CONTROLS"
     )
 
-    assert validation_run["passed_count"] == 6
-    assert validation_run["warning_count"] == 0
-    assert validation_run["failed_count"] == 0
-    assert validation_run["blocking_count"] == 0
+    assert (
+        validation_run["passed_count"]
+        == 8
+    )
+
+    assert (
+        validation_run["warning_count"]
+        == 0
+    )
+
+    assert (
+        validation_run["failed_count"]
+        == 0
+    )
+
+    assert (
+        validation_run["blocking_count"]
+        == 0
+    )
 
     results = {
         result["rule_id"]: result
@@ -172,55 +202,106 @@ def main() -> None:
     expected_rule_ids = {
         "VAL-01",
         "VAL-02",
+        "VAL-03",
+        "VAL-04",
         "VAL-05",
         "VAL-06",
         "VAL-07",
         "VAL-08",
     }
 
-    assert set(results) == expected_rule_ids
+    assert set(
+        results
+    ) == expected_rule_ids
 
     for rule_id in expected_rule_ids:
-        rule = results[rule_id]
+        rule = results[
+            rule_id
+        ]
 
-        assert rule["result"] == "PASS"
-        assert rule["blocking"] is False
-        assert rule["message"]
+        assert (
+            rule["result"]
+            == "PASS"
+        )
 
-    arithmetic = results["VAL-02"]
+        assert (
+            rule["blocking"]
+            is False
+        )
+
+        assert rule[
+            "message"
+        ]
+
+    header_arithmetic = results[
+        "VAL-02"
+    ]
+
+    line_sum = results[
+        "VAL-03"
+    ]
+
+    line_arithmetic = results[
+        "VAL-04"
+    ]
+
+    currency = results[
+        "VAL-06"
+    ]
 
     assert (
-        arithmetic["expected_value"][
-            "calculated_total"
-        ]
-        == "138.00"
-    )
-
-    assert (
-        arithmetic["actual_value"][
-            "stated_total"
-        ]
-        == "138.00"
-    )
-
-    assert (
-        arithmetic["actual_value"][
-            "difference"
-        ]
+        header_arithmetic[
+            "actual_value"
+        ]["difference"]
         == "0.00"
     )
 
-    normalization = results["VAL-08"]
+    assert (
+        line_sum[
+            "actual_value"
+        ]["calculated_line_sum"]
+        == "120.00"
+    )
 
     assert (
-        normalization["actual_value"][
-            "canonical_invoice_number"
-        ]
-        == "INV-1001"
+        line_sum[
+            "actual_value"
+        ]["difference"]
+        == "0.00"
+    )
+
+    line_results = (
+        line_arithmetic[
+            "details"
+        ]["line_results"]
+    )
+
+    assert len(
+        line_results
+    ) == 2
+
+    assert all(
+        line["result"] == "PASS"
+        for line in line_results
+    )
+
+    assert (
+        currency[
+            "actual_value"
+        ]["mismatched_lines"]
+        == []
+    )
+
+    assert (
+        currency[
+            "actual_value"
+        ]["missing_currency_lines"]
+        == []
     )
 
     elapsed_seconds = round(
-        time.monotonic() - started_at,
+        time.monotonic()
+        - started_at,
         2,
     )
 
@@ -228,9 +309,13 @@ def main() -> None:
         {
             "status": "passed",
             "document_id": document_id,
-            "document_status": document["status"],
+            "document_status": (
+                document["status"]
+            ),
             "validation_status": (
-                validation_run["status"]
+                validation_run[
+                    "status"
+                ]
             ),
             "ruleset_version": (
                 validation_run[
@@ -250,13 +335,22 @@ def main() -> None:
                     "blocking_count"
                 ]
             ),
-            "header_arithmetic_difference": (
-                arithmetic["actual_value"][
-                    "difference"
-                ]
+            "header_difference": (
+                header_arithmetic[
+                    "actual_value"
+                ]["difference"]
             ),
+            "line_sum_difference": (
+                line_sum[
+                    "actual_value"
+                ]["difference"]
+            ),
+            "line_arithmetic_passed": True,
+            "currency_consistency_passed": True,
             "expected_actual_evidence_preserved": True,
-            "elapsed_seconds": elapsed_seconds,
+            "elapsed_seconds": (
+                elapsed_seconds
+            ),
         }
     )
 

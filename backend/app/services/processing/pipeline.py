@@ -317,7 +317,7 @@ async def process_document_pipeline(
                     invoice_extraction_id
                 ),
                 "ruleset_version": (
-                    "header-rules-v1"
+                    "invoice-rules-v2"
                 ),
             },
         )
@@ -415,8 +415,6 @@ async def process_document_pipeline(
                     blocking_rule_ids
                 ),
                 "pending_controls": [
-                    "VAL-03",
-                    "VAL-04",
                     "business_duplicate",
                     "vendor_identity",
                     "purchase_order_match",

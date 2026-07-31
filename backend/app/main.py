@@ -32,7 +32,7 @@ async def lifespan(
 
 app = FastAPI(
     title=settings.app_name,
-    version="0.7.0",
+    version="0.8.0",
     description=(
         "Invoice intake, preprocessing, OCR, "
         "canonical header and line-item extraction, "

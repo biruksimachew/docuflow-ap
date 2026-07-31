@@ -7,6 +7,20 @@ from typing import Any
 
 
 @dataclass(frozen=True)
+class InvoiceLineValidationItem:
+    """Typed line-item values consumed by deterministic rules."""
+
+    line_number: int
+    description: str
+
+    quantity: Decimal | None
+    unit_price: Decimal | None
+    line_total: Decimal | None
+
+    currency: str | None
+
+
+@dataclass(frozen=True)
 class InvoiceValidationContext:
     """Typed invoice values consumed by deterministic rules."""
 
@@ -28,6 +42,11 @@ class InvoiceValidationContext:
     shipping_amount: Decimal | None
     tax_amount: Decimal | None
     total_amount: Decimal | None
+
+    line_items: tuple[
+        InvoiceLineValidationItem,
+        ...,
+    ]
 
 
 @dataclass(frozen=True)

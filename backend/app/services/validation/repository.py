@@ -10,6 +10,7 @@ from sqlalchemy import text
 
 from app.db.database import engine
 from app.services.validation.models import (
+    InvoiceLineValidationItem,
     InvoiceValidationContext,
     ValidationSummary,
 )
@@ -20,7 +21,7 @@ async def load_validation_context(
     document_id: str,
     invoice_extraction_id: str,
 ) -> InvoiceValidationContext:
-    query = text(
+    header_query = text(
         """
         select
             header.vendor_name,
@@ -52,9 +53,25 @@ async def load_validation_context(
         """
     )
 
+    line_items_query = text(
+        """
+        select
+            line_number,
+            description,
+            quantity,
+            unit_price,
+            line_total,
+            currency
+        from public.invoice_line_items
+        where invoice_extraction_id =
+            cast(:invoice_extraction_id as uuid)
+        order by line_number
+        """
+    )
+
     async with engine.connect() as connection:
-        result = await connection.execute(
-            query,
+        header_result = await connection.execute(
+            header_query,
             {
                 "document_id": document_id,
                 "invoice_extraction_id": (
@@ -63,43 +80,105 @@ async def load_validation_context(
             },
         )
 
-        row = result.mappings().one_or_none()
-
-    if row is None:
-        raise RuntimeError(
-            "Canonical invoice header was not found "
-            "for deterministic validation."
+        header = (
+            header_result
+            .mappings()
+            .one_or_none()
         )
+
+        if header is None:
+            raise RuntimeError(
+                "Canonical invoice header was not found "
+                "for deterministic validation."
+            )
+
+        line_items_result = (
+            await connection.execute(
+                line_items_query,
+                {
+                    "invoice_extraction_id": (
+                        invoice_extraction_id
+                    ),
+                },
+            )
+        )
+
+        line_rows = (
+            line_items_result
+            .mappings()
+            .all()
+        )
+
+    line_items = tuple(
+        InvoiceLineValidationItem(
+            line_number=int(
+                row["line_number"]
+            ),
+            description=str(
+                row["description"]
+            ),
+            quantity=_to_decimal(
+                row["quantity"]
+            ),
+            unit_price=_to_decimal(
+                row["unit_price"]
+            ),
+            line_total=_to_decimal(
+                row["line_total"]
+            ),
+            currency=(
+                str(row["currency"]).strip()
+                if row["currency"] is not None
+                else None
+            ),
+        )
+        for row in line_rows
+    )
 
     return InvoiceValidationContext(
         document_id=document_id,
-        invoice_extraction_id=invoice_extraction_id,
-        vendor_name=row["vendor_name"],
-        invoice_number=row["invoice_number"],
-        raw_invoice_number=row[
+        invoice_extraction_id=(
+            invoice_extraction_id
+        ),
+        vendor_name=header[
+            "vendor_name"
+        ],
+        invoice_number=header[
+            "invoice_number"
+        ],
+        raw_invoice_number=header[
             "raw_invoice_number"
         ],
-        invoice_date=row["invoice_date"],
-        due_date=row["due_date"],
-        purchase_order_number=row[
+        invoice_date=header[
+            "invoice_date"
+        ],
+        due_date=header[
+            "due_date"
+        ],
+        purchase_order_number=header[
             "purchase_order_number"
         ],
-        currency=row["currency"],
+        currency=(
+            str(header["currency"]).strip()
+            if header["currency"] is not None
+            else None
+        ),
         subtotal=_to_decimal(
-            row["subtotal"]
+            header["subtotal"]
         ),
         discount_amount=_to_decimal(
-            row["discount_amount"]
+            header["discount_amount"]
         ),
         shipping_amount=_to_decimal(
-            row["shipping_amount"]
+            header["shipping_amount"]
         ),
         tax_amount=_to_decimal(
-            row["tax_amount"]
+            header["tax_amount"]
         ),
         total_amount=_to_decimal(
-            row["total_amount"]
+            header["total_amount"]
         ),
+        line_items=line_items,
     )
 
 
@@ -128,7 +207,7 @@ async def start_validation_run(
             cast(:document_id as uuid),
             cast(:processing_run_id as uuid),
             cast(:invoice_extraction_id as uuid),
-            'header-rules-v1',
+            'invoice-rules-v2',
             'STARTED'
         )
         """
@@ -252,7 +331,9 @@ async def complete_validation_run(
                     "validation_run_id": (
                         validation_run_id
                     ),
-                    "document_id": document_id,
+                    "document_id": (
+                        document_id
+                    ),
                     "rule_id": (
                         rule_result.rule_id
                     ),
@@ -328,7 +409,9 @@ async def complete_validation_run(
                 "validation_run_id": (
                     validation_run_id
                 ),
-                "document_id": document_id,
+                "document_id": (
+                    document_id
+                ),
                 "overall_outcome": (
                     summary.overall_outcome
                 ),
@@ -339,7 +422,8 @@ async def complete_validation_run(
         )
 
         reason = (
-            "Header deterministic controls passed."
+            "Header and line-level deterministic "
+            "controls passed."
             if summary.blocking_count == 0
             else (
                 "One or more blocking deterministic "
@@ -350,7 +434,9 @@ async def complete_validation_run(
         await connection.execute(
             insert_audit,
             {
-                "document_id": document_id,
+                "document_id": (
+                    document_id
+                ),
                 "reason": reason,
                 "payload": json.dumps(
                     {
@@ -358,7 +444,7 @@ async def complete_validation_run(
                             validation_run_id
                         ),
                         "ruleset_version": (
-                            "header-rules-v1"
+                            "invoice-rules-v2"
                         ),
                         "overall_outcome": (
                             summary.overall_outcome
@@ -407,8 +493,12 @@ async def fail_validation_run(
                 "validation_run_id": (
                     validation_run_id
                 ),
-                "error_code": error_code,
-                "error_message": error_message,
+                "error_code": (
+                    error_code
+                ),
+                "error_message": (
+                    error_message
+                ),
             },
         )
 
@@ -481,12 +571,16 @@ async def get_validation_snapshot(
         document_result = await connection.execute(
             document_query,
             {
-                "document_id": document_id,
+                "document_id": (
+                    document_id
+                ),
             },
         )
 
         document = (
-            document_result.mappings().one_or_none()
+            document_result
+            .mappings()
+            .one_or_none()
         )
 
         if document is None:
@@ -495,17 +589,23 @@ async def get_validation_snapshot(
         run_result = await connection.execute(
             run_query,
             {
-                "document_id": document_id,
+                "document_id": (
+                    document_id
+                ),
             },
         )
 
         validation_run = (
-            run_result.mappings().one_or_none()
+            run_result
+            .mappings()
+            .one_or_none()
         )
 
         if validation_run is None:
             return {
-                "document": dict(document),
+                "document": (
+                    dict(document)
+                ),
                 "validation_run": None,
                 "validation_results": [],
             }
@@ -522,12 +622,16 @@ async def get_validation_snapshot(
         validation_results = [
             dict(row)
             for row in (
-                results_result.mappings().all()
+                results_result
+                .mappings()
+                .all()
             )
         ]
 
     return {
-        "document": dict(document),
+        "document": dict(
+            document
+        ),
         "validation_run": dict(
             validation_run
         ),

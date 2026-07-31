@@ -113,4 +113,4 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "All DocuFlow AP line-item extraction checks passed."
+Write-Host "All DocuFlow AP line-item validation checks passed."

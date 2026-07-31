@@ -52,7 +52,9 @@ async def validate_and_persist_invoice(
         )
 
         await complete_validation_run(
-            validation_run_id=validation_run_id,
+            validation_run_id=(
+                validation_run_id
+            ),
             document_id=document_id,
             summary=summary,
         )
@@ -62,7 +64,7 @@ async def validate_and_persist_invoice(
                 validation_run_id
             ),
             "ruleset_version": (
-                "header-rules-v1"
+                "invoice-rules-v2"
             ),
             "overall_outcome": (
                 summary.overall_outcome
@@ -86,7 +88,9 @@ async def validate_and_persist_invoice(
 
     except Exception as exc:
         await fail_validation_run(
-            validation_run_id=validation_run_id,
+            validation_run_id=(
+                validation_run_id
+            ),
             error_code=type(exc).__name__,
             error_message=str(exc)[:2000],
         )
