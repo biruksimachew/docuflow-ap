@@ -42,13 +42,14 @@ def _load_font(
 def create_line_item_invoice_image(
     *,
     invoice_number: str = "INV-2001",
+    purchase_order_number: str | None = None,
     marker: str | None = None,
 ):
     image = Image.new(
         "RGB",
         (
             1800,
-            1300,
+            1450,
         ),
         "white",
     )
@@ -69,7 +70,7 @@ def create_line_item_invoice_image(
         24
     )
 
-    lines = (
+    lines: list[tuple[str, object]] = [
         (
             "INVOICE",
             title_font,
@@ -90,39 +91,55 @@ def create_line_item_invoice_image(
             "Currency: USD",
             body_font,
         ),
-        (
+    ]
+
+    if purchase_order_number:
+        lines.append(
             (
-                "Description             Qty  "
-                "Unit Price  Line Total"
-            ),
-            body_font,
-        ),
-        (
+                (
+                    "PO Number: "
+                    f"{purchase_order_number}"
+                ),
+                body_font,
+            )
+        )
+
+    lines.extend(
+        [
             (
-                "Printer Paper           2    "
-                "50.00       100.00"
+                (
+                    "Description             Qty  "
+                    "Unit Price  Line Total"
+                ),
+                body_font,
             ),
-            body_font,
-        ),
-        (
             (
-                "Blue Pens               1    "
-                "20.00       20.00"
+                (
+                    "Printer Paper           2    "
+                    "50.00       100.00"
+                ),
+                body_font,
             ),
-            body_font,
-        ),
-        (
-            "Subtotal: 120.00",
-            body_font,
-        ),
-        (
-            "Tax: 18.00",
-            body_font,
-        ),
-        (
-            "Total: 138.00 USD",
-            body_font,
-        ),
+            (
+                (
+                    "Blue Pens               1    "
+                    "20.00       20.00"
+                ),
+                body_font,
+            ),
+            (
+                "Subtotal: 120.00",
+                body_font,
+            ),
+            (
+                "Tax: 18.00",
+                body_font,
+            ),
+            (
+                "Total: 138.00 USD",
+                body_font,
+            ),
+        ]
     )
 
     y = 65
@@ -144,7 +161,7 @@ def create_line_item_invoice_image(
         draw.text(
             (
                 70,
-                1200,
+                1360,
             ),
             marker,
             font=marker_font,

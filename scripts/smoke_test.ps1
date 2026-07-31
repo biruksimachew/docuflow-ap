@@ -123,4 +123,14 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "All DocuFlow AP business duplicate checks passed."
+Write-Host "===== VENDOR AND PURCHASE-ORDER MATCHING ====="
+
+docker compose exec -T api `
+    python -m scripts.check_vendor_po_matching
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Vendor and PO matching test failed."
+}
+
+Write-Host ""
+Write-Host "All DocuFlow AP vendor and PO matching checks passed."

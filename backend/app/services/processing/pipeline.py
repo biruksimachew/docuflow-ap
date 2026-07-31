@@ -34,6 +34,9 @@ from app.services.processing.repository import (
 from app.services.duplicates.service import (
     detect_and_persist_business_duplicates,
 )
+from app.services.matching.service import (
+    match_and_persist_vendor_and_po,
+)
 from app.services.validation.service import (
     validate_and_persist_invoice,
 )
@@ -372,6 +375,44 @@ async def process_document_pipeline(
             )
         )
 
+        await set_document_status(
+            document_id=document_id,
+            status="VALIDATING",
+            event_type=(
+                "DOCUMENT_MATCHING_STARTED"
+            ),
+            reason=(
+                "Vendor identity and purchase-order "
+                "matching started."
+            ),
+            payload={
+                "processing_run_id": (
+                    processing_run_id
+                ),
+                "invoice_extraction_id": (
+                    invoice_extraction_id
+                ),
+                "vendor_ruleset_version": (
+                    "vendor-identity-v1"
+                ),
+                "po_ruleset_version": (
+                    "purchase-order-v1"
+                ),
+            },
+        )
+
+        matching_summary = (
+            await match_and_persist_vendor_and_po(
+                document_id=document_id,
+                processing_run_id=(
+                    processing_run_id
+                ),
+                invoice_extraction_id=(
+                    invoice_extraction_id
+                ),
+            )
+        )
+
         await complete_processing_run(
             processing_run_id=processing_run_id,
             document_id=document_id,
@@ -401,6 +442,24 @@ async def process_document_pipeline(
             ]
         )
 
+        vendor_outcome = (
+            matching_summary[
+                "vendor_outcome"
+            ]
+        )
+
+        po_outcome = (
+            matching_summary[
+                "po_outcome"
+            ]
+        )
+
+        matching_blocking = (
+            matching_summary[
+                "matching_blocking"
+            ]
+        )
+
         if duplicate_outcome == "BUSINESS_DUPLICATE":
             review_reason = (
                 "The canonical invoice exactly matches "
@@ -418,17 +477,23 @@ async def process_document_pipeline(
                 "deterministic controls failed or "
                 "could not be proven."
             )
-        elif missing_required_fields:
+        elif vendor_outcome != "MATCHED":
             review_reason = (
-                "Required extracted fields are missing "
-                "and require human review."
+                "The extracted supplier could not be "
+                "resolved to one unambiguous active "
+                "vendor-master record."
+            )
+        elif po_outcome != "MATCHED":
+            review_reason = (
+                "The extracted purchase order could not "
+                "be matched completely to the invoice."
             )
         else:
             review_reason = (
-                "Extraction, arithmetic, currency and "
-                "business duplicate controls passed. "
-                "Vendor identity and purchase-order "
-                "matching are still pending."
+                "Extraction, validation, duplicate, "
+                "vendor and purchase-order controls "
+                "passed. The final approval decision "
+                "engine is still pending."
             )
 
         await set_document_status(
@@ -490,9 +555,37 @@ async def process_document_pipeline(
                         "matched_document_id"
                     ]
                 ),
+                "vendor_match_run_id": (
+                    matching_summary[
+                        "vendor_match_run_id"
+                    ]
+                ),
+                "vendor_outcome": (
+                    vendor_outcome
+                ),
+                "matched_vendor_id": (
+                    matching_summary[
+                        "matched_vendor_id"
+                    ]
+                ),
+                "po_match_run_id": (
+                    matching_summary[
+                        "po_match_run_id"
+                    ]
+                ),
+                "po_outcome": (
+                    po_outcome
+                ),
+                "matched_purchase_order_id": (
+                    matching_summary[
+                        "matched_purchase_order_id"
+                    ]
+                ),
+                "matching_blocking": (
+                    matching_blocking
+                ),
                 "pending_controls": [
-                    "vendor_identity",
-                    "purchase_order_match",
+                    "decision_engine",
                 ],
             },
         )
@@ -557,6 +650,35 @@ async def process_document_pipeline(
                 duplicate_summary[
                     "matched_document_id"
                 ]
+            ),
+            "vendor_match_run_id": (
+                matching_summary[
+                    "vendor_match_run_id"
+                ]
+            ),
+            "vendor_outcome": (
+                vendor_outcome
+            ),
+            "matched_vendor_id": (
+                matching_summary[
+                    "matched_vendor_id"
+                ]
+            ),
+            "po_match_run_id": (
+                matching_summary[
+                    "po_match_run_id"
+                ]
+            ),
+            "po_outcome": (
+                po_outcome
+            ),
+            "matched_purchase_order_id": (
+                matching_summary[
+                    "matched_purchase_order_id"
+                ]
+            ),
+            "matching_blocking": (
+                matching_blocking
             ),
             "canonical_header": (
                 extraction_summary[

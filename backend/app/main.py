@@ -18,6 +18,9 @@ from app.api.routes.health import (
 from app.api.routes.line_items import (
     router as line_items_router,
 )
+from app.api.routes.matching import (
+    router as matching_router,
+)
 from app.api.routes.validations import (
     router as validations_router,
 )
@@ -35,7 +38,7 @@ async def lifespan(
 
 app = FastAPI(
     title=settings.app_name,
-    version="0.9.0",
+    version="0.10.0",
     description=(
         "Invoice intake, preprocessing, OCR, "
         "canonical header and line-item extraction, "
@@ -64,6 +67,12 @@ app.include_router(
     line_items_router,
     prefix="/api/v1",
 )
+
+app.include_router(
+    matching_router,
+    prefix="/api/v1",
+)
+
 
 app.include_router(
     duplicates_router,
@@ -102,6 +111,9 @@ async def root() -> dict[str, str]:
         ),
         "duplicate_snapshot": (
             "/api/v1/documents/{document_id}/duplicate-check"
+        ),
+        "matching_snapshot": (
+            "/api/v1/documents/{document_id}/matching"
         ),
         "validation_snapshot": (
             "/api/v1/documents/{document_id}/validation"
