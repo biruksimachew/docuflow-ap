@@ -133,4 +133,14 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "All DocuFlow AP vendor and PO matching checks passed."
+Write-Host "===== AUTHORITATIVE DECISION ENGINE ====="
+
+docker compose exec -T api `
+    python -m scripts.check_decision_engine
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Authoritative decision engine test failed."
+}
+
+Write-Host ""
+Write-Host "All DocuFlow AP decision-engine checks passed."

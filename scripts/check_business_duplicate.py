@@ -93,7 +93,9 @@ def wait_for_processing(
         ]["status"]
 
         if status in {
+            "AUTO_APPROVED",
             "REVIEW_REQUIRED",
+            "REJECTED",
             "FAILED",
         }:
             if status == "FAILED":

@@ -3,6 +3,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.routes.decisions import (
+    router as decisions_router,
+)
 from app.api.routes.documents import (
     router as documents_router,
 )
@@ -38,7 +41,7 @@ async def lifespan(
 
 app = FastAPI(
     title=settings.app_name,
-    version="0.10.0",
+    version="0.11.0",
     description=(
         "Invoice intake, preprocessing, OCR, "
         "canonical header and line-item extraction, "
@@ -57,6 +60,12 @@ app.include_router(
     documents_router,
     prefix="/api/v1",
 )
+
+app.include_router(
+    decisions_router,
+    prefix="/api/v1",
+)
+
 
 app.include_router(
     extractions_router,
@@ -114,6 +123,9 @@ async def root() -> dict[str, str]:
         ),
         "matching_snapshot": (
             "/api/v1/documents/{document_id}/matching"
+        ),
+        "decision_snapshot": (
+            "/api/v1/documents/{document_id}/decision"
         ),
         "validation_snapshot": (
             "/api/v1/documents/{document_id}/validation"

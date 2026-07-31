@@ -103,7 +103,9 @@ def main() -> None:
         )
 
         if document_status in {
+            "AUTO_APPROVED",
             "REVIEW_REQUIRED",
+            "REJECTED",
             "FAILED",
         }:
             break
@@ -131,10 +133,11 @@ def main() -> None:
             }
         )
 
-    assert (
-        document["status"]
-        == "REVIEW_REQUIRED"
-    )
+    assert document["status"] in {
+        "AUTO_APPROVED",
+        "REVIEW_REQUIRED",
+        "REJECTED",
+    }
 
     validation_response = httpx.get(
         (

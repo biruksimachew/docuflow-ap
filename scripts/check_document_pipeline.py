@@ -78,7 +78,9 @@ def main() -> None:
         document_status = snapshot["document"]["status"]
 
         if document_status in {
+            "AUTO_APPROVED",
             "REVIEW_REQUIRED",
+            "REJECTED",
             "FAILED",
         }:
             break
@@ -100,7 +102,11 @@ def main() -> None:
             }
         )
 
-    assert document["status"] == "REVIEW_REQUIRED"
+    assert document["status"] in {
+        "AUTO_APPROVED",
+        "REVIEW_REQUIRED",
+        "REJECTED",
+    }
     assert document["processing_attempts"] == 1
 
     processing_run = snapshot[

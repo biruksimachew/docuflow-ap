@@ -34,6 +34,9 @@ from app.services.processing.repository import (
 from app.services.duplicates.service import (
     detect_and_persist_business_duplicates,
 )
+from app.services.decisions.service import (
+    decide_and_persist_invoice,
+)
 from app.services.matching.service import (
     match_and_persist_vendor_and_po,
 )
@@ -413,6 +416,61 @@ async def process_document_pipeline(
             )
         )
 
+        await set_document_status(
+            document_id=document_id,
+            status="DECIDING",
+            event_type=(
+                "DOCUMENT_DECISION_STARTED"
+            ),
+            reason=(
+                "The authoritative invoice decision "
+                "policy started."
+            ),
+            payload={
+                "processing_run_id": (
+                    processing_run_id
+                ),
+                "invoice_extraction_id": (
+                    invoice_extraction_id
+                ),
+                "policy_version": (
+                    "invoice-decision-v1"
+                ),
+            },
+        )
+
+        decision_summary = (
+            await decide_and_persist_invoice(
+                document_id=document_id,
+                processing_run_id=(
+                    processing_run_id
+                ),
+                invoice_extraction_id=(
+                    invoice_extraction_id
+                ),
+                validation_run_id=(
+                    validation_summary[
+                        "validation_run_id"
+                    ]
+                ),
+                duplicate_check_id=(
+                    duplicate_summary[
+                        "duplicate_check_id"
+                    ]
+                ),
+                vendor_match_run_id=(
+                    matching_summary[
+                        "vendor_match_run_id"
+                    ]
+                ),
+                po_match_run_id=(
+                    matching_summary[
+                        "po_match_run_id"
+                    ]
+                ),
+            )
+        )
+
         await complete_processing_run(
             processing_run_id=processing_run_id,
             document_id=document_id,
@@ -460,133 +518,69 @@ async def process_document_pipeline(
             ]
         )
 
-        if duplicate_outcome == "BUSINESS_DUPLICATE":
-            review_reason = (
-                "The canonical invoice exactly matches "
-                "a previously processed business invoice."
-            )
-        elif duplicate_outcome == "POTENTIAL_DUPLICATE":
-            review_reason = (
-                "The vendor and invoice number match a "
-                "previous invoice, but one or more other "
-                "identity fields differ."
-            )
-        elif blocking_rule_ids:
-            review_reason = (
-                "One or more authoritative "
-                "deterministic controls failed or "
-                "could not be proven."
-            )
-        elif vendor_outcome != "MATCHED":
-            review_reason = (
-                "The extracted supplier could not be "
-                "resolved to one unambiguous active "
-                "vendor-master record."
-            )
-        elif po_outcome != "MATCHED":
-            review_reason = (
-                "The extracted purchase order could not "
-                "be matched completely to the invoice."
-            )
-        else:
-            review_reason = (
-                "Extraction, validation, duplicate, "
-                "vendor and purchase-order controls "
-                "passed. The final approval decision "
-                "engine is still pending."
-            )
+        decision_outcome = (
+            decision_summary[
+                "outcome"
+            ]
+        )
+
+        decision_reason_codes = (
+            decision_summary[
+                "reason_codes"
+            ]
+        )
+
+        decision_explanation = (
+            decision_summary[
+                "explanation"
+            ]
+        )
 
         await set_document_status(
             document_id=document_id,
-            status="REVIEW_REQUIRED",
-            event_type="DOCUMENT_REVIEW_REQUIRED",
-            reason=review_reason,
+            status=decision_outcome,
+            event_type=(
+                "DOCUMENT_FINAL_DECISION_APPLIED"
+            ),
+            reason=decision_explanation,
             payload={
                 "processing_run_id": (
                     processing_run_id
                 ),
-                "ocr_run_id": ocr_run_id,
                 "invoice_extraction_id": (
                     invoice_extraction_id
                 ),
-                "validation_run_id": (
-                    validation_summary[
-                        "validation_run_id"
+                "decision_run_id": (
+                    decision_summary[
+                        "decision_run_id"
                     ]
                 ),
-                "page_count": len(
-                    prepared_pages
-                ),
-                "token_count": (
-                    total_token_count
-                ),
-                "document_ocr_confidence": (
-                    document_ocr_confidence
-                ),
-                "header_confidence": (
-                    extraction_summary[
-                        "header_confidence"
+                "policy_version": (
+                    decision_summary[
+                        "policy_version"
                     ]
                 ),
-                "missing_required_fields": (
-                    missing_required_fields
+                "decision_outcome": (
+                    decision_outcome
+                ),
+                "decision_reason_codes": (
+                    decision_reason_codes
                 ),
                 "validation_outcome": (
                     validation_summary[
                         "overall_outcome"
                     ]
                 ),
-                "blocking_rule_ids": (
-                    blocking_rule_ids
-                ),
-                "duplicate_check_id": (
-                    duplicate_summary[
-                        "duplicate_check_id"
-                    ]
-                ),
                 "duplicate_outcome": (
                     duplicate_outcome
-                ),
-                "duplicate_blocking": (
-                    duplicate_blocking
-                ),
-                "matched_duplicate_document_id": (
-                    duplicate_summary[
-                        "matched_document_id"
-                    ]
-                ),
-                "vendor_match_run_id": (
-                    matching_summary[
-                        "vendor_match_run_id"
-                    ]
                 ),
                 "vendor_outcome": (
                     vendor_outcome
                 ),
-                "matched_vendor_id": (
-                    matching_summary[
-                        "matched_vendor_id"
-                    ]
-                ),
-                "po_match_run_id": (
-                    matching_summary[
-                        "po_match_run_id"
-                    ]
-                ),
                 "po_outcome": (
                     po_outcome
                 ),
-                "matched_purchase_order_id": (
-                    matching_summary[
-                        "matched_purchase_order_id"
-                    ]
-                ),
-                "matching_blocking": (
-                    matching_blocking
-                ),
-                "pending_controls": [
-                    "decision_engine",
-                ],
+                "pending_controls": [],
             },
         )
 
@@ -679,6 +673,25 @@ async def process_document_pipeline(
             ),
             "matching_blocking": (
                 matching_blocking
+            ),
+            "decision_run_id": (
+                decision_summary[
+                    "decision_run_id"
+                ]
+            ),
+            "decision_policy_version": (
+                decision_summary[
+                    "policy_version"
+                ]
+            ),
+            "decision_outcome": (
+                decision_outcome
+            ),
+            "decision_reason_codes": (
+                decision_reason_codes
+            ),
+            "decision_explanation": (
+                decision_explanation
             ),
             "canonical_header": (
                 extraction_summary[

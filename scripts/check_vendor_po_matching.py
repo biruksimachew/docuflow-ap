@@ -94,7 +94,9 @@ def main() -> None:
         ]["status"]
 
         if status in {
+            "AUTO_APPROVED",
             "REVIEW_REQUIRED",
+            "REJECTED",
             "FAILED",
         }:
             break
@@ -124,7 +126,7 @@ def main() -> None:
 
     assert (
         document["status"]
-        == "REVIEW_REQUIRED"
+        == "AUTO_APPROVED"
     )
 
     matching_response = httpx.get(
