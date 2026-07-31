@@ -93,6 +93,16 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
+Write-Host "===== CANONICAL LINE-ITEM EXTRACTION ====="
+
+docker compose exec -T api `
+    python -m scripts.check_line_item_extraction
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Line-item extraction test failed."
+}
+
+Write-Host ""
 Write-Host "===== DETERMINISTIC VALIDATION ====="
 
 docker compose exec -T api `
@@ -103,4 +113,4 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "All DocuFlow AP deterministic validation checks passed."
+Write-Host "All DocuFlow AP line-item extraction checks passed."

@@ -11,6 +11,9 @@ from app.services.extraction.repository import (
     load_ocr_pages,
     start_invoice_extraction,
 )
+from app.services.line_items.service import (
+    extract_and_persist_line_items,
+)
 
 
 async def extract_and_persist_header(
@@ -19,7 +22,11 @@ async def extract_and_persist_header(
     processing_run_id: str,
     ocr_run_id: str,
 ) -> dict[str, Any]:
-    """Extract and persist the canonical invoice header."""
+    """
+    Extract and persist the canonical invoice header and line items.
+
+    The historical function name remains stable for existing callers.
+    """
 
     extraction_id = await start_invoice_extraction(
         document_id=document_id,
@@ -35,33 +42,66 @@ async def extract_and_persist_header(
         if not pages:
             raise RuntimeError(
                 "No OCR page results were available "
-                "for header extraction."
+                "for canonical extraction."
             )
 
-        result = extract_header_fields(
-            pages
+        header_result = (
+            extract_header_fields(
+                pages
+            )
         )
 
         await complete_invoice_extraction(
             extraction_id=extraction_id,
             document_id=document_id,
-            result=result,
+            result=header_result,
+        )
+
+        line_item_summary = (
+            await extract_and_persist_line_items(
+                document_id=document_id,
+                invoice_extraction_id=(
+                    extraction_id
+                ),
+                pages=pages,
+                header_currency=(
+                    header_result
+                    .canonical_header[
+                        "currency"
+                    ]
+                ),
+            )
         )
 
         return {
-            "invoice_extraction_id": extraction_id,
+            "invoice_extraction_id": (
+                extraction_id
+            ),
             "schema_version": "header-v1",
             "header_confidence": (
-                result.header_confidence
+                header_result
+                .header_confidence
             ),
             "field_count": len(
-                result.fields
+                header_result.fields
             ),
             "missing_required_fields": list(
-                result.missing_required_fields
+                header_result
+                .missing_required_fields
             ),
             "canonical_header": (
-                result.canonical_header
+                header_result
+                .canonical_header
+            ),
+            "line_item_count": (
+                line_item_summary[
+                    "line_item_count"
+                ]
+            ),
+            "line_item_confidence": (
+                line_item_summary[
+                    "line_item_confidence"
+                ]
             ),
         }
 

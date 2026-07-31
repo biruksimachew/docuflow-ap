@@ -12,6 +12,9 @@ from app.api.routes.extractions import (
 from app.api.routes.health import (
     router as health_router,
 )
+from app.api.routes.line_items import (
+    router as line_items_router,
+)
 from app.api.routes.validations import (
     router as validations_router,
 )
@@ -29,11 +32,12 @@ async def lifespan(
 
 app = FastAPI(
     title=settings.app_name,
-    version="0.6.0",
+    version="0.7.0",
     description=(
         "Invoice intake, preprocessing, OCR, "
-        "canonical extraction, deterministic validation, "
-        "matching, human review and export API."
+        "canonical header and line-item extraction, "
+        "deterministic validation, matching, "
+        "human review and export API."
     ),
     debug=settings.app_debug,
     lifespan=lifespan,
@@ -50,6 +54,11 @@ app.include_router(
 
 app.include_router(
     extractions_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    line_items_router,
     prefix="/api/v1",
 )
 
@@ -78,6 +87,9 @@ async def root() -> dict[str, str]:
         ),
         "extraction_snapshot": (
             "/api/v1/documents/{document_id}/extraction"
+        ),
+        "line_item_snapshot": (
+            "/api/v1/documents/{document_id}/line-items"
         ),
         "validation_snapshot": (
             "/api/v1/documents/{document_id}/validation"
