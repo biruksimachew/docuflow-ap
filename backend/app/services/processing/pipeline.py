@@ -31,6 +31,9 @@ from app.services.processing.repository import (
     set_document_status,
     start_processing_run,
 )
+from app.services.duplicates.service import (
+    detect_and_persist_business_duplicates,
+)
 from app.services.validation.service import (
     validate_and_persist_invoice,
 )
@@ -334,6 +337,41 @@ async def process_document_pipeline(
             )
         )
 
+        await set_document_status(
+            document_id=document_id,
+            status="VALIDATING",
+            event_type=(
+                "DOCUMENT_DUPLICATE_CHECK_STARTED"
+            ),
+            reason=(
+                "Deterministic business duplicate "
+                "detection started."
+            ),
+            payload={
+                "processing_run_id": (
+                    processing_run_id
+                ),
+                "invoice_extraction_id": (
+                    invoice_extraction_id
+                ),
+                "ruleset_version": (
+                    "business-duplicate-v1"
+                ),
+            },
+        )
+
+        duplicate_summary = (
+            await detect_and_persist_business_duplicates(
+                document_id=document_id,
+                processing_run_id=(
+                    processing_run_id
+                ),
+                invoice_extraction_id=(
+                    invoice_extraction_id
+                ),
+            )
+        )
+
         await complete_processing_run(
             processing_run_id=processing_run_id,
             document_id=document_id,
@@ -351,7 +389,30 @@ async def process_document_pipeline(
             ]
         )
 
-        if blocking_rule_ids:
+        duplicate_outcome = (
+            duplicate_summary[
+                "outcome"
+            ]
+        )
+
+        duplicate_blocking = (
+            duplicate_summary[
+                "blocking"
+            ]
+        )
+
+        if duplicate_outcome == "BUSINESS_DUPLICATE":
+            review_reason = (
+                "The canonical invoice exactly matches "
+                "a previously processed business invoice."
+            )
+        elif duplicate_outcome == "POTENTIAL_DUPLICATE":
+            review_reason = (
+                "The vendor and invoice number match a "
+                "previous invoice, but one or more other "
+                "identity fields differ."
+            )
+        elif blocking_rule_ids:
             review_reason = (
                 "One or more authoritative "
                 "deterministic controls failed or "
@@ -364,11 +425,10 @@ async def process_document_pipeline(
             )
         else:
             review_reason = (
-                "Header extraction and current "
-                "deterministic controls passed. "
-                "Line-item, duplicate, vendor and "
-                "purchase-order controls are still "
-                "pending."
+                "Extraction, arithmetic, currency and "
+                "business duplicate controls passed. "
+                "Vendor identity and purchase-order "
+                "matching are still pending."
             )
 
         await set_document_status(
@@ -414,8 +474,23 @@ async def process_document_pipeline(
                 "blocking_rule_ids": (
                     blocking_rule_ids
                 ),
+                "duplicate_check_id": (
+                    duplicate_summary[
+                        "duplicate_check_id"
+                    ]
+                ),
+                "duplicate_outcome": (
+                    duplicate_outcome
+                ),
+                "duplicate_blocking": (
+                    duplicate_blocking
+                ),
+                "matched_duplicate_document_id": (
+                    duplicate_summary[
+                        "matched_document_id"
+                    ]
+                ),
                 "pending_controls": [
-                    "business_duplicate",
                     "vendor_identity",
                     "purchase_order_match",
                 ],
@@ -466,6 +541,22 @@ async def process_document_pipeline(
             ),
             "blocking_rule_ids": (
                 blocking_rule_ids
+            ),
+            "duplicate_check_id": (
+                duplicate_summary[
+                    "duplicate_check_id"
+                ]
+            ),
+            "duplicate_outcome": (
+                duplicate_outcome
+            ),
+            "duplicate_blocking": (
+                duplicate_blocking
+            ),
+            "matched_duplicate_document_id": (
+                duplicate_summary[
+                    "matched_document_id"
+                ]
             ),
             "canonical_header": (
                 extraction_summary[

@@ -113,4 +113,14 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "All DocuFlow AP line-item validation checks passed."
+Write-Host "===== BUSINESS DUPLICATE DETECTION ====="
+
+docker compose exec -T api `
+    python -m scripts.check_business_duplicate
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Business duplicate detection test failed."
+}
+
+Write-Host ""
+Write-Host "All DocuFlow AP business duplicate checks passed."

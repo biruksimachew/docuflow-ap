@@ -6,6 +6,9 @@ from fastapi import FastAPI
 from app.api.routes.documents import (
     router as documents_router,
 )
+from app.api.routes.duplicates import (
+    router as duplicates_router,
+)
 from app.api.routes.extractions import (
     router as extractions_router,
 )
@@ -32,7 +35,7 @@ async def lifespan(
 
 app = FastAPI(
     title=settings.app_name,
-    version="0.8.0",
+    version="0.9.0",
     description=(
         "Invoice intake, preprocessing, OCR, "
         "canonical header and line-item extraction, "
@@ -63,6 +66,12 @@ app.include_router(
 )
 
 app.include_router(
+    duplicates_router,
+    prefix="/api/v1",
+)
+
+
+app.include_router(
     validations_router,
     prefix="/api/v1",
 )
@@ -90,6 +99,9 @@ async def root() -> dict[str, str]:
         ),
         "line_item_snapshot": (
             "/api/v1/documents/{document_id}/line-items"
+        ),
+        "duplicate_snapshot": (
+            "/api/v1/documents/{document_id}/duplicate-check"
         ),
         "validation_snapshot": (
             "/api/v1/documents/{document_id}/validation"

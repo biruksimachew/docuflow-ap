@@ -39,7 +39,11 @@ def _load_font(
     return ImageFont.load_default()
 
 
-def create_line_item_invoice_image():
+def create_line_item_invoice_image(
+    *,
+    invoice_number: str = "INV-2001",
+    marker: str | None = None,
+):
     image = Image.new(
         "RGB",
         (
@@ -61,6 +65,10 @@ def create_line_item_invoice_image():
         38
     )
 
+    marker_font = _load_font(
+        24
+    )
+
     lines = (
         (
             "INVOICE",
@@ -71,7 +79,7 @@ def create_line_item_invoice_image():
             body_font,
         ),
         (
-            "Invoice Number: INV-2001",
+            f"Invoice Number: {invoice_number}",
             body_font,
         ),
         (
@@ -131,5 +139,16 @@ def create_line_item_invoice_image():
         )
 
         y += 95
+
+    if marker:
+        draw.text(
+            (
+                70,
+                1200,
+            ),
+            marker,
+            font=marker_font,
+            fill="black",
+        )
 
     return image
