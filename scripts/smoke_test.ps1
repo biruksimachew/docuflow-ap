@@ -21,7 +21,8 @@ $readiness | ConvertTo-Json -Depth 5
 Write-Host ""
 Write-Host "===== TESSERACT INSTALLATION ====="
 
-docker compose exec -T api tesseract --version
+docker compose exec -T api `
+    tesseract --version
 
 if ($LASTEXITCODE -ne 0) {
     throw "Tesseract is unavailable."
@@ -80,4 +81,14 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "All DocuFlow AP document OCR checks passed."
+Write-Host "===== CANONICAL HEADER EXTRACTION ====="
+
+docker compose exec -T api `
+    python -m scripts.check_header_extraction
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Header extraction test failed."
+}
+
+Write-Host ""
+Write-Host "All DocuFlow AP header extraction checks passed."

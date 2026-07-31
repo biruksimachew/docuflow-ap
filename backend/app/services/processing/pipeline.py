@@ -7,6 +7,9 @@ from typing import Any
 from anyio import to_thread
 
 from app.core.config import settings
+from app.services.extraction.service import (
+    extract_and_persist_header,
+)
 from app.services.intake.storage import (
     get_object_storage,
 )
@@ -232,36 +235,92 @@ async def process_document_pipeline(
             ocr_run_id
         )
 
-        await complete_processing_run(
-            processing_run_id=processing_run_id,
-            document_id=document_id,
-        )
-
-        document_confidence = None
+        document_ocr_confidence = None
 
         if page_confidences:
-            document_confidence = round(
+            document_ocr_confidence = round(
                 mean(page_confidences),
                 4,
             )
 
         await set_document_status(
             document_id=document_id,
-            status="REVIEW_REQUIRED",
-            event_type="DOCUMENT_OCR_COMPLETED",
+            status="EXTRACTION_IN_PROGRESS",
+            event_type="DOCUMENT_EXTRACTION_STARTED",
             reason=(
-                "Local OCR completed successfully. "
-                "Structured field extraction and "
-                "deterministic validation will run "
-                "in the next pipeline milestone."
+                "Canonical invoice header extraction "
+                "started from persisted OCR evidence."
             ),
             payload={
                 "processing_run_id": processing_run_id,
                 "ocr_run_id": ocr_run_id,
+                "schema_version": "header-v1",
+            },
+        )
+
+        extraction_summary = (
+            await extract_and_persist_header(
+                document_id=document_id,
+                processing_run_id=processing_run_id,
+                ocr_run_id=ocr_run_id,
+            )
+        )
+
+        await complete_processing_run(
+            processing_run_id=processing_run_id,
+            document_id=document_id,
+        )
+
+        missing_required_fields = (
+            extraction_summary[
+                "missing_required_fields"
+            ]
+        )
+
+        if missing_required_fields:
+            review_reason = (
+                "Header extraction completed, but "
+                "one or more mandatory fields were not "
+                "reliably extracted."
+            )
+        else:
+            review_reason = (
+                "Header extraction completed successfully. "
+                "Line-item extraction, deterministic rules, "
+                "duplicate control and purchase-order "
+                "matching are still pending."
+            )
+
+        await set_document_status(
+            document_id=document_id,
+            status="REVIEW_REQUIRED",
+            event_type="DOCUMENT_EXTRACTION_COMPLETED",
+            reason=review_reason,
+            payload={
+                "processing_run_id": processing_run_id,
+                "ocr_run_id": ocr_run_id,
+                "invoice_extraction_id": (
+                    extraction_summary[
+                        "invoice_extraction_id"
+                    ]
+                ),
                 "page_count": len(prepared_pages),
                 "token_count": total_token_count,
                 "document_ocr_confidence": (
-                    document_confidence
+                    document_ocr_confidence
+                ),
+                "header_confidence": (
+                    extraction_summary[
+                        "header_confidence"
+                    ]
+                ),
+                "extracted_field_count": (
+                    extraction_summary[
+                        "field_count"
+                    ]
+                ),
+                "missing_required_fields": (
+                    missing_required_fields
                 ),
             },
         )
@@ -271,10 +330,33 @@ async def process_document_pipeline(
             "document_id": document_id,
             "processing_run_id": processing_run_id,
             "ocr_run_id": ocr_run_id,
+            "invoice_extraction_id": (
+                extraction_summary[
+                    "invoice_extraction_id"
+                ]
+            ),
             "page_count": len(prepared_pages),
             "token_count": total_token_count,
             "document_ocr_confidence": (
-                document_confidence
+                document_ocr_confidence
+            ),
+            "header_confidence": (
+                extraction_summary[
+                    "header_confidence"
+                ]
+            ),
+            "extracted_field_count": (
+                extraction_summary[
+                    "field_count"
+                ]
+            ),
+            "missing_required_fields": (
+                missing_required_fields
+            ),
+            "canonical_header": (
+                extraction_summary[
+                    "canonical_header"
+                ]
             ),
             "document_status": "REVIEW_REQUIRED",
         }
