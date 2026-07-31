@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from anyio import to_thread
 from fastapi import (
@@ -27,6 +27,11 @@ from app.services.intake.validation import (
     FileValidationError,
     validate_upload,
 )
+from app.services.processing.repository import (
+    get_processing_snapshot,
+    mark_dispatch_failure,
+)
+from app.workers.tasks import process_document
 
 
 logger = logging.getLogger(__name__)
@@ -80,11 +85,15 @@ def build_response(
     row: dict,
     *,
     is_duplicate: bool,
+    processing_enqueued: bool = False,
+    processing_task_id: str | None = None,
 ) -> DocumentUploadResponse:
     return DocumentUploadResponse(
         document_id=row["id"],
         status=row["status"],
         is_duplicate=is_duplicate,
+        processing_enqueued=processing_enqueued,
+        processing_task_id=processing_task_id,
         original_filename=row["original_filename"],
         sanitized_filename=row["sanitized_filename"],
         detected_media_type=row["detected_media_type"],
@@ -179,9 +188,9 @@ async def upload_document(
 
     document_id = uuid4()
 
-    date_path = datetime.now(timezone.utc).strftime(
-        "%Y/%m/%d"
-    )
+    date_path = datetime.now(
+        timezone.utc
+    ).strftime("%Y/%m/%d")
 
     object_key = (
         f"documents/{date_path}/"
@@ -263,7 +272,54 @@ async def upload_document(
 
         raise
 
+    processing_task_id: str | None = None
+    processing_enqueued = False
+
+    if document_status == "RECEIVED":
+        try:
+            task = process_document.delay(
+                str(document_id)
+            )
+
+            processing_task_id = task.id
+            processing_enqueued = True
+        except Exception as exc:
+            logger.exception(
+                "Document processing dispatch failed."
+            )
+
+            await mark_dispatch_failure(
+                document_id=str(document_id),
+                error_message=str(exc)[:2000],
+            )
+
+            row["status"] = "RETRY_SCHEDULED"
+
     return build_response(
         row,
         is_duplicate=False,
+        processing_enqueued=processing_enqueued,
+        processing_task_id=processing_task_id,
     )
+
+
+@router.get(
+    "/{document_id}/processing",
+)
+async def document_processing(
+    document_id: UUID,
+) -> dict:
+    snapshot = await get_processing_snapshot(
+        str(document_id)
+    )
+
+    if snapshot is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": "DOCUMENT_NOT_FOUND",
+                "message": "The document does not exist.",
+            },
+        )
+
+    return snapshot

@@ -50,7 +50,7 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host $taskResult
 
 Write-Host ""
-Write-Host "===== INVOICE INTAKE ====="
+Write-Host "===== SECURE INVOICE INTAKE ====="
 
 docker compose exec -T api `
     python scripts/test_intake.py
@@ -70,4 +70,14 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "All DocuFlow AP OCR foundation checks passed."
+Write-Host "===== DOCUMENT OCR PIPELINE ====="
+
+docker compose exec -T api `
+    python -m scripts.check_document_pipeline
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Document OCR pipeline test failed."
+}
+
+Write-Host ""
+Write-Host "All DocuFlow AP document OCR checks passed."

@@ -39,10 +39,15 @@ class Settings(BaseSettings):
     s3_access_key: str = "docuflow"
     s3_secret_key: str = "docuflow-local-secret"
     s3_region: str = "us-east-1"
+
     s3_bucket_source_invoices: str = "source-invoices"
+    s3_bucket_derived_pages: str = "derived-pages"
 
     ocr_provider: str = "tesseract"
     ocr_language: str = "eng"
+    ocr_task_max_retries: int = 2
+
+    pdf_render_dpi: int = 200
 
     @property
     def allowed_file_type_set(self) -> set[str]:

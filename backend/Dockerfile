@@ -11,6 +11,7 @@ RUN apt-get update \
         tesseract-ocr \
         tesseract-ocr-eng \
         fonts-dejavu-core \
+        libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN addgroup --system appgroup \

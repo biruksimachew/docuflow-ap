@@ -11,6 +11,9 @@ class DocumentUploadResponse(BaseModel):
     status: str
     is_duplicate: bool
 
+    processing_enqueued: bool
+    processing_task_id: str | None
+
     original_filename: str
     sanitized_filename: str
 
