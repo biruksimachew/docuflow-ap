@@ -4,6 +4,10 @@ from uuid import uuid4
 
 import httpx
 
+from scripts.auth_test_tokens import (
+    authenticated_get,
+)
+
 from tests.line_item_test_image import (
     create_line_item_invoice_image,
 )
@@ -75,7 +79,7 @@ def main() -> None:
     processing_snapshot = None
 
     for _ in range(60):
-        response = httpx.get(
+        response = authenticated_get(
             (
                 f"{BASE_URL}/api/v1/documents/"
                 f"{document_id}/processing"
@@ -129,7 +133,7 @@ def main() -> None:
         == "AUTO_APPROVED"
     )
 
-    matching_response = httpx.get(
+    matching_response = authenticated_get(
         (
             f"{BASE_URL}/api/v1/documents/"
             f"{document_id}/matching"

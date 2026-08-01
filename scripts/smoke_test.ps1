@@ -143,4 +143,14 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "All DocuFlow AP decision-engine checks passed."
+Write-Host "===== AUTHENTICATION AND ROLE-BASED ACCESS CONTROL ====="
+
+docker compose exec -T api `
+    python -m scripts.check_auth_rbac
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Authentication and RBAC test failed."
+}
+
+Write-Host ""
+Write-Host "All DocuFlow AP authentication and RBAC checks passed."

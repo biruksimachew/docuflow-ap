@@ -4,6 +4,10 @@ from uuid import uuid4
 
 import httpx
 
+from scripts.auth_test_tokens import (
+    authenticated_get,
+)
+
 from tests.line_item_test_image import (
     create_line_item_invoice_image,
 )
@@ -96,7 +100,7 @@ def wait_for_terminal_status(
     document_id: str,
 ) -> dict:
     for _ in range(60):
-        response = httpx.get(
+        response = authenticated_get(
             (
                 f"{BASE_URL}/api/v1/documents/"
                 f"{document_id}/processing"
@@ -144,7 +148,7 @@ def wait_for_terminal_status(
 def get_decision(
     document_id: str,
 ) -> dict:
-    response = httpx.get(
+    response = authenticated_get(
         (
             f"{BASE_URL}/api/v1/documents/"
             f"{document_id}/decision"

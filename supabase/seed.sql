@@ -117,3 +117,45 @@ do update set
     quantity = excluded.quantity,
     unit_price = excluded.unit_price,
     line_total = excluded.line_total;
+-- DOCUFLOW_AUTHENTICATION_RBAC_SEED
+
+insert into public.app_user_roles (
+    id,
+    user_id,
+    email,
+    display_name,
+    role,
+    active
+)
+values
+(
+    '91000000-0000-0000-0000-000000000001',
+    '90000000-0000-0000-0000-000000000001',
+    'clerk@docuflow.local',
+    'Local AP Clerk',
+    'AP_CLERK',
+    true
+),
+(
+    '91000000-0000-0000-0000-000000000002',
+    '90000000-0000-0000-0000-000000000002',
+    'reviewer@docuflow.local',
+    'Local AP Reviewer',
+    'REVIEWER',
+    true
+),
+(
+    '91000000-0000-0000-0000-000000000003',
+    '90000000-0000-0000-0000-000000000003',
+    'admin@docuflow.local',
+    'Local Administrator',
+    'ADMIN',
+    true
+)
+on conflict (user_id)
+do update set
+    email = excluded.email,
+    display_name = excluded.display_name,
+    role = excluded.role,
+    active = excluded.active,
+    updated_at = now();

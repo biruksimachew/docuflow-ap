@@ -3,6 +3,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.routes.auth import (
+    router as auth_router,
+)
 from app.api.routes.decisions import (
     router as decisions_router,
 )
@@ -29,6 +32,9 @@ from app.api.routes.validations import (
 )
 from app.core.config import settings
 from app.db.database import engine
+from app.security.middleware import (
+    DocumentSecurityMiddleware,
+)
 
 
 @asynccontextmanager
@@ -41,19 +47,28 @@ async def lifespan(
 
 app = FastAPI(
     title=settings.app_name,
-    version="0.11.0",
+    version="0.12.0",
     description=(
-        "Invoice intake, preprocessing, OCR, "
-        "canonical header and line-item extraction, "
-        "deterministic validation, matching, "
-        "human review and export API."
+        "Authenticated invoice intake, preprocessing, OCR, "
+        "canonical extraction, deterministic validation, "
+        "duplicate detection, vendor and PO matching, "
+        "authoritative decisions and audit APIs."
     ),
     debug=settings.app_debug,
     lifespan=lifespan,
 )
 
+app.add_middleware(
+    DocumentSecurityMiddleware
+)
+
 app.include_router(
     health_router
+)
+
+app.include_router(
+    auth_router,
+    prefix="/api/v1",
 )
 
 app.include_router(
@@ -66,6 +81,10 @@ app.include_router(
     prefix="/api/v1",
 )
 
+app.include_router(
+    duplicates_router,
+    prefix="/api/v1",
+)
 
 app.include_router(
     extractions_router,
@@ -81,13 +100,6 @@ app.include_router(
     matching_router,
     prefix="/api/v1",
 )
-
-
-app.include_router(
-    duplicates_router,
-    prefix="/api/v1",
-)
-
 
 app.include_router(
     validations_router,
@@ -106,6 +118,9 @@ async def root() -> dict[str, str]:
         "documentation": "/docs",
         "health": "/health",
         "readiness": "/health/ready",
+        "authentication_profile": (
+            "/api/v1/auth/me"
+        ),
         "invoice_upload": (
             "/api/v1/documents/upload"
         ),
@@ -118,6 +133,9 @@ async def root() -> dict[str, str]:
         "line_item_snapshot": (
             "/api/v1/documents/{document_id}/line-items"
         ),
+        "validation_snapshot": (
+            "/api/v1/documents/{document_id}/validation"
+        ),
         "duplicate_snapshot": (
             "/api/v1/documents/{document_id}/duplicate-check"
         ),
@@ -126,8 +144,5 @@ async def root() -> dict[str, str]:
         ),
         "decision_snapshot": (
             "/api/v1/documents/{document_id}/decision"
-        ),
-        "validation_snapshot": (
-            "/api/v1/documents/{document_id}/validation"
         ),
     }

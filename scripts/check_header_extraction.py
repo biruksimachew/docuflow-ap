@@ -3,6 +3,10 @@ import time
 from uuid import uuid4
 
 import httpx
+
+from scripts.auth_test_tokens import (
+    authenticated_get,
+)
 from PIL import ImageDraw
 
 from tests.ocr_test_image import (
@@ -67,7 +71,7 @@ def main() -> None:
     processing_snapshot = None
 
     for _ in range(60):
-        processing_response = httpx.get(
+        processing_response = authenticated_get(
             (
                 "http://127.0.0.1:8000"
                 f"/api/v1/documents/{document_id}"
@@ -125,7 +129,7 @@ def main() -> None:
         "REJECTED",
     }
 
-    extraction_response = httpx.get(
+    extraction_response = authenticated_get(
         (
             "http://127.0.0.1:8000"
             f"/api/v1/documents/{document_id}"
