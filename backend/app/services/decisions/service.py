@@ -13,6 +13,9 @@ from app.services.decisions.repository import (
     load_decision_input,
     start_decision_run,
 )
+from app.services.reviews.service import (
+    ensure_review_case_for_decision,
+)
 
 
 async def decide_and_persist_invoice(
@@ -40,6 +43,8 @@ async def decide_and_persist_invoice(
         ),
         po_match_run_id=po_match_run_id,
     )
+
+    decision_completed = False
 
     try:
         decision_input = await load_decision_input(
@@ -78,17 +83,29 @@ async def decide_and_persist_invoice(
         )
 
         await complete_decision_run(
-            decision_run_id=(
-                decision_run_id
-            ),
+            decision_run_id=decision_run_id,
             document_id=document_id,
             result=result,
         )
 
+        decision_completed = True
+
+        review_case = None
+
+        if result.outcome == "REVIEW_REQUIRED":
+            review_case = (
+                await ensure_review_case_for_decision(
+                    document_id=document_id,
+                    decision_run_id=decision_run_id,
+                    reason_codes=list(
+                        result.reason_codes
+                    ),
+                    explanation=result.explanation,
+                )
+            )
+
         return {
-            "decision_run_id": (
-                decision_run_id
-            ),
+            "decision_run_id": decision_run_id,
             "policy_version": (
                 "invoice-decision-v1"
             ),
@@ -97,25 +114,32 @@ async def decide_and_persist_invoice(
             "reason_codes": list(
                 result.reason_codes
             ),
-            "explanation": (
-                result.explanation
-            ),
+            "explanation": result.explanation,
             "input_snapshot": (
                 result.input_snapshot
             ),
             "threshold_snapshot": (
                 result.threshold_snapshot
             ),
+            "review_case_id": (
+                str(review_case["id"])
+                if review_case is not None
+                else None
+            ),
+            "review_case_status": (
+                str(review_case["status"])
+                if review_case is not None
+                else None
+            ),
         }
 
     except Exception as exc:
-        await fail_decision_run(
-            decision_run_id=(
-                decision_run_id
-            ),
-            error_code=type(exc).__name__,
-            error_message=str(exc)[:2000],
-        )
+        if not decision_completed:
+            await fail_decision_run(
+                decision_run_id=decision_run_id,
+                error_code=type(exc).__name__,
+                error_message=str(exc)[:2000],
+            )
 
         raise
 

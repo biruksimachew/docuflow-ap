@@ -153,4 +153,14 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "All DocuFlow AP authentication and RBAC checks passed."
+Write-Host "===== HUMAN REVIEW QUEUE AND CASE OWNERSHIP ====="
+
+docker compose exec -T api `
+    python -m scripts.check_human_review_queue
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Human review queue test failed."
+}
+
+Write-Host ""
+Write-Host "All DocuFlow AP human review queue checks passed."

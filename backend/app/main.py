@@ -27,6 +27,9 @@ from app.api.routes.line_items import (
 from app.api.routes.matching import (
     router as matching_router,
 )
+from app.api.routes.reviews import (
+    router as reviews_router,
+)
 from app.api.routes.validations import (
     router as validations_router,
 )
@@ -47,12 +50,11 @@ async def lifespan(
 
 app = FastAPI(
     title=settings.app_name,
-    version="0.12.0",
+    version="0.13.0",
     description=(
-        "Authenticated invoice intake, preprocessing, OCR, "
-        "canonical extraction, deterministic validation, "
-        "duplicate detection, vendor and PO matching, "
-        "authoritative decisions and audit APIs."
+        "Authenticated invoice intake, OCR, extraction, "
+        "validation, duplicate detection, vendor and PO "
+        "matching, authoritative decisions and human review."
     ),
     debug=settings.app_debug,
     lifespan=lifespan,
@@ -102,6 +104,11 @@ app.include_router(
 )
 
 app.include_router(
+    reviews_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
     validations_router,
     prefix="/api/v1",
 )
@@ -144,5 +151,8 @@ async def root() -> dict[str, str]:
         ),
         "decision_snapshot": (
             "/api/v1/documents/{document_id}/decision"
+        ),
+        "review_queue": (
+            "/api/v1/reviews"
         ),
     }
