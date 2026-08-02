@@ -173,4 +173,15 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "All DocuFlow AP correction and review-resolution checks passed."
+Write-Host "===== ACCOUNTING EXPORTS ====="
+
+docker compose exec -T api `
+    python -m scripts.check_accounting_exports
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Accounting export test failed."
+}
+
+Write-Host ""
+Write-Host "All DocuFlow AP accounting-export checks passed."
+

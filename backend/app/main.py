@@ -18,6 +18,9 @@ from app.api.routes.duplicates import (
 from app.api.routes.extractions import (
     router as extractions_router,
 )
+from app.api.routes.exports import (
+    router as exports_router,
+)
 from app.api.routes.health import (
     router as health_router,
 )
@@ -50,7 +53,7 @@ async def lifespan(
 
 app = FastAPI(
     title=settings.app_name,
-    version="0.14.0",
+    version="0.15.0",
     description=(
         "Authenticated invoice intake, OCR, extraction, "
         "validation, duplicate detection, vendor and PO "
@@ -90,6 +93,11 @@ app.include_router(
 
 app.include_router(
     extractions_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    exports_router,
     prefix="/api/v1",
 )
 
