@@ -30,6 +30,9 @@ from app.api.routes.line_items import (
 from app.api.routes.matching import (
     router as matching_router,
 )
+from app.api.routes.notifications import (
+    router as notifications_router,
+)
 from app.api.routes.reviews import (
     router as reviews_router,
 )
@@ -53,7 +56,7 @@ async def lifespan(
 
 app = FastAPI(
     title=settings.app_name,
-    version="0.15.0",
+    version="0.16.0",
     description=(
         "Authenticated invoice intake, OCR, extraction, "
         "validation, duplicate detection, vendor and PO "
@@ -110,6 +113,11 @@ app.include_router(
     matching_router,
     prefix="/api/v1",
 )
+app.include_router(
+    notifications_router,
+    prefix="/api/v1",
+)
+
 
 app.include_router(
     reviews_router,

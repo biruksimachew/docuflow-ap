@@ -58,6 +58,53 @@ class Settings(BaseSettings):
 
     pdf_render_dpi: int = 200
 
+    public_api_base_url: str = (
+        "http://127.0.0.1:8000"
+    )
+
+    notification_max_attempts: int = 3
+    notification_retry_base_seconds: int = 2
+    notification_retry_max_seconds: int = 300
+    notification_delivery_stale_seconds: int = 60
+
+    notification_webhook_timeout_seconds: int = 10
+    notification_webhook_signing_secret: str = (
+        "docuflow-local-notification-secret"
+    )
+    notification_webhook_allowed_hosts: str = (
+        "api,localhost,127.0.0.1"
+    )
+
+    notification_email_provider: str = (
+        "LOCAL_SINK"
+    )
+    notification_email_from: str = (
+        "docuflow@localhost.test"
+    )
+
+    notification_smtp_host: str = (
+        "host.docker.internal"
+    )
+    notification_smtp_port: int = 1025
+    notification_smtp_timeout_seconds: int = 10
+    notification_smtp_username: str = ""
+    notification_smtp_password: str = ""
+    notification_smtp_starttls: bool = False
+
+    @property
+    def notification_webhook_allowed_host_set(
+        self,
+    ) -> set[str]:
+        return {
+            value.strip().lower()
+            for value in (
+                self
+                .notification_webhook_allowed_hosts
+                .split(",")
+            )
+            if value.strip()
+        }
+
     @property
     def allowed_file_type_set(self) -> set[str]:
         return {

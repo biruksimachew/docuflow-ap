@@ -30,7 +30,7 @@ def invoice_png(
         purchase_order_number=(
             purchase_order_number
         ),
-        marker=f"Accounting export {uuid4()}",
+        marker="Accounting export fixture",
     )
 
     buffer = io.BytesIO()

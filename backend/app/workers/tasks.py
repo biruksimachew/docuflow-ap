@@ -117,3 +117,10 @@ def process_document(
             )
 
         raise
+
+# DOCUFLOW_NOTIFICATION_TASK_REGISTRATION
+# Importing the shared task registers it with the existing DocuFlow Celery app.
+from app.services.notifications.task import (
+    deliver_notification_task,
+)
+

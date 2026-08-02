@@ -183,5 +183,16 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "All DocuFlow AP accounting-export checks passed."
+Write-Host "===== RETRY-SAFE EXPORT NOTIFICATIONS ====="
+
+docker compose exec -T api `
+    python -m scripts.check_notification_delivery
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Export notification delivery test failed."
+}
+
+Write-Host ""
+Write-Host "All DocuFlow AP export-notification checks passed."
+
 
