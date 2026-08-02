@@ -163,4 +163,14 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "All DocuFlow AP human review queue checks passed."
+Write-Host "===== CORRECTIONS, CONTROL RERUNS AND REVIEW RESOLUTION ====="
+
+docker compose exec -T api `
+    python -m scripts.check_review_corrections_and_resolution
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Review correction and resolution test failed."
+}
+
+Write-Host ""
+Write-Host "All DocuFlow AP correction and review-resolution checks passed."

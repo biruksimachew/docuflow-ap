@@ -50,7 +50,7 @@ async def lifespan(
 
 app = FastAPI(
     title=settings.app_name,
-    version="0.13.0",
+    version="0.14.0",
     description=(
         "Authenticated invoice intake, OCR, extraction, "
         "validation, duplicate detection, vendor and PO "
