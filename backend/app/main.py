@@ -9,6 +9,9 @@ from app.api.routes.auth import (
 from app.api.routes.decisions import (
     router as decisions_router,
 )
+from app.api.routes.dashboard import (
+    router as dashboard_router,
+)
 from app.api.routes.documents import (
     router as documents_router,
 )
@@ -56,11 +59,12 @@ async def lifespan(
 
 app = FastAPI(
     title=settings.app_name,
-    version="0.16.0",
+    version="0.17.0",
     description=(
         "Authenticated invoice intake, OCR, extraction, "
         "validation, duplicate detection, vendor and PO "
-        "matching, authoritative decisions and human review."
+        "matching, authoritative decisions, human review, "
+        "accounting exports, delivery tracking and operations dashboards."
     ),
     debug=settings.app_debug,
     lifespan=lifespan,
@@ -86,6 +90,11 @@ app.include_router(
 
 app.include_router(
     decisions_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    dashboard_router,
     prefix="/api/v1",
 )
 
@@ -170,5 +179,8 @@ async def root() -> dict[str, str]:
         ),
         "review_queue": (
             "/api/v1/reviews"
+        ),
+        "operations_dashboard": (
+            "/api/v1/dashboard/overview"
         ),
     }

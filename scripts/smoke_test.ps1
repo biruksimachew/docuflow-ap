@@ -193,6 +193,27 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "All DocuFlow AP export-notification checks passed."
+Write-Host "===== OPERATIONS DASHBOARD API ====="
+
+docker compose exec -T api `
+    python -m scripts.check_dashboard_api
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Operations dashboard API test failed."
+}
+
+Write-Host ""
+Write-Host "===== NEXT.JS OPERATIONS DASHBOARD ====="
+
+docker compose exec -T api `
+    python -m scripts.check_frontend_dashboard
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Operations dashboard frontend test failed."
+}
+
+Write-Host ""
+Write-Host "All DocuFlow AP operations-dashboard checks passed."
+
 
 

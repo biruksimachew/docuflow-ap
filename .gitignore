@@ -45,3 +45,11 @@ supabase/.temp/
 # OCR and generated document artifacts
 data/generated/
 data/runtime/
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+milestone10_frontend_preflight.txt
+milestone_10a_frontend_preflight.ps1
+milestone_10a_operations_dashboard.ps1
+milestone_10a_operations_dashboard_fixed.ps1
+milestone_10a_recover_partial_install.ps1
