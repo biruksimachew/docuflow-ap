@@ -74,3 +74,4 @@ milestone_10b_interactive_workspace.ps1
 docuflow_release_readiness_snapshot.zip
 docuflow_release_readiness_snapshot.ps1
 frontend/tsconfig.tsbuildinfo
+frontend/next-env.d.ts
