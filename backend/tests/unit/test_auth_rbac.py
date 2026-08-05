@@ -3,10 +3,15 @@ from datetime import (
     timedelta,
     timezone,
 )
+from types import SimpleNamespace
 
 import jwt
 import pytest
+from cryptography.hazmat.primitives.asymmetric import (
+    ec,
+)
 
+import app.security.jwt as jwt_security
 from app.security.errors import (
     AuthenticationError,
 )
@@ -27,38 +32,53 @@ TEST_SUBJECT = (
 )
 
 
-def token(
+def claims(
+    *,
+    audience: str = "authenticated",
+    expires_in_seconds: int = 3600,
+    token_role: str = "authenticated",
+) -> dict[str, object]:
+    now = datetime.now(
+        timezone.utc
+    )
+
+    return {
+        "sub": TEST_SUBJECT,
+        "email": (
+            "clerk@docuflow.local"
+        ),
+        "aud": audience,
+        "role": token_role,
+        "iat": int(
+            now.timestamp()
+        ),
+        "exp": int(
+            (
+                now
+                + timedelta(
+                    seconds=(
+                        expires_in_seconds
+                    )
+                )
+            ).timestamp()
+        ),
+    }
+
+
+def hs256_token(
     *,
     audience: str = "authenticated",
     expires_in_seconds: int = 3600,
     token_role: str = "authenticated",
 ) -> str:
-    now = datetime.now(
-        timezone.utc
-    )
-
     return jwt.encode(
-        {
-            "sub": TEST_SUBJECT,
-            "email": (
-                "clerk@docuflow.local"
+        claims(
+            audience=audience,
+            expires_in_seconds=(
+                expires_in_seconds
             ),
-            "aud": audience,
-            "role": token_role,
-            "iat": int(
-                now.timestamp()
-            ),
-            "exp": int(
-                (
-                    now
-                    + timedelta(
-                        seconds=(
-                            expires_in_seconds
-                        )
-                    )
-                ).timestamp()
-            ),
-        },
+            token_role=token_role,
+        ),
         TEST_SECRET,
         algorithm="HS256",
     )
@@ -73,8 +93,8 @@ def configure(
     )
 
     monkeypatch.setenv(
-        "AUTH_JWT_ALGORITHM",
-        "HS256",
+        "AUTH_JWT_ALGORITHMS",
+        "HS256,ES256",
     )
 
     monkeypatch.setenv(
@@ -83,7 +103,7 @@ def configure(
     )
 
 
-def test_valid_supabase_token_is_decoded(
+def test_valid_hs256_supabase_token_is_decoded(
     monkeypatch,
 ) -> None:
     configure(
@@ -91,7 +111,7 @@ def test_valid_supabase_token_is_decoded(
     )
 
     decoded = decode_supabase_access_token(
-        token()
+        hs256_token()
     )
 
     assert (
@@ -102,6 +122,57 @@ def test_valid_supabase_token_is_decoded(
     assert (
         decoded.email
         == "clerk@docuflow.local"
+    )
+
+    assert (
+        decoded.token_role
+        == "authenticated"
+    )
+
+
+def test_valid_es256_supabase_token_is_decoded(
+    monkeypatch,
+) -> None:
+    configure(
+        monkeypatch
+    )
+
+    private_key = (
+        ec.generate_private_key(
+            ec.SECP256R1()
+        )
+    )
+
+    token = jwt.encode(
+        claims(),
+        private_key,
+        algorithm="ES256",
+        headers={
+            "kid": "test-signing-key",
+        },
+    )
+
+    fake_client = SimpleNamespace(
+        get_signing_key_from_jwt=(
+            lambda _: SimpleNamespace(
+                key=private_key.public_key()
+            )
+        )
+    )
+
+    monkeypatch.setattr(
+        jwt_security,
+        "_jwks_client",
+        lambda _: fake_client,
+    )
+
+    decoded = decode_supabase_access_token(
+        token
+    )
+
+    assert (
+        decoded.subject
+        == TEST_SUBJECT
     )
 
     assert (
@@ -121,7 +192,7 @@ def test_expired_token_is_rejected(
         AuthenticationError
     ):
         decode_supabase_access_token(
-            token(
+            hs256_token(
                 expires_in_seconds=-60
             )
         )
@@ -138,7 +209,7 @@ def test_wrong_audience_is_rejected(
         AuthenticationError
     ):
         decode_supabase_access_token(
-            token(
+            hs256_token(
                 audience="another-service"
             )
         )
@@ -155,7 +226,7 @@ def test_service_role_token_is_rejected(
         AuthenticationError
     ):
         decode_supabase_access_token(
-            token(
+            hs256_token(
                 token_role="service_role"
             )
         )

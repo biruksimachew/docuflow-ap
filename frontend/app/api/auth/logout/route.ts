@@ -3,8 +3,13 @@ import {
 } from "next/server";
 
 import {
-  SESSION_COOKIE,
-} from "@/lib/api";
+  ACCESS_TOKEN_COOKIE,
+  REFRESH_TOKEN_COOKIE,
+  SESSION_SOURCE_COOKIE,
+  accessCookieOptions,
+  refreshCookieOptions,
+  sourceCookieOptions,
+} from "@/lib/session";
 
 
 export async function POST() {
@@ -19,17 +24,24 @@ export async function POST() {
   );
 
   response.cookies.set(
-    SESSION_COOKIE,
+    ACCESS_TOKEN_COOKIE,
     "",
-    {
-      httpOnly: true,
-      sameSite: "lax",
-      secure:
-        process.env.NODE_ENV ===
-        "production",
-      path: "/",
-      maxAge: 0,
-    },
+    accessCookieOptions(0),
+  );
+  response.cookies.set(
+    REFRESH_TOKEN_COOKIE,
+    "",
+    refreshCookieOptions(0),
+  );
+  response.cookies.set(
+    SESSION_SOURCE_COOKIE,
+    "",
+    sourceCookieOptions(0),
+  );
+
+  response.headers.set(
+    "Cache-Control",
+    "no-store",
   );
 
   return response;

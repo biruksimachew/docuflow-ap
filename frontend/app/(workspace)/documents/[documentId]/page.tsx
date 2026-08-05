@@ -1,15 +1,24 @@
 import Link from "next/link";
 
-import { StatusBadge } from "@/components/status-badge";
-import { docuFlowFetch } from "@/lib/api";
+import {
+  DocumentOperations,
+} from "@/components/document-operations";
+import {
+  StatusBadge,
+} from "@/components/status-badge";
+import {
+  docuFlowFetch,
+  requireProfile,
+} from "@/lib/api";
 import {
   formatDate,
-  formatDateTime,
   formatMoney,
   humanize,
 } from "@/lib/format";
 import type {
   DocumentDetailResponse,
+  EffectiveInvoiceSnapshot,
+  ReviewSnapshot,
 } from "@/lib/types";
 
 
@@ -28,12 +37,39 @@ export const metadata = {
 export default async function DocumentPage({
   params,
 }: DocumentPageProps) {
-  const { documentId } = await params;
+  const {
+    documentId,
+  } = await params;
 
-  const detail =
-    await docuFlowFetch<DocumentDetailResponse>(
+  const [
+    profile,
+    detail,
+  ] = await Promise.all([
+    requireProfile(),
+    docuFlowFetch<DocumentDetailResponse>(
       `/api/v1/dashboard/documents/${documentId}`,
-    );
+    ),
+  ]);
+
+  let reviewSnapshot:
+    ReviewSnapshot | null = null;
+
+  let effectiveInvoice:
+    EffectiveInvoiceSnapshot | null = null;
+
+  if (detail.review_case) {
+    [
+      reviewSnapshot,
+      effectiveInvoice,
+    ] = await Promise.all([
+      docuFlowFetch<ReviewSnapshot>(
+        `/api/v1/reviews/${detail.review_case.id}`,
+      ),
+      docuFlowFetch<EffectiveInvoiceSnapshot>(
+        `/api/v1/reviews/${detail.review_case.id}/effective-invoice`,
+      ),
+    ]);
+  }
 
   const document = detail.document;
 
@@ -92,13 +128,15 @@ export default async function DocumentPage({
             <div>
               <dt>Vendor</dt>
               <dd>
-                {document.vendor_name ?? "—"}
+                {document.vendor_name ??
+                  "—"}
               </dd>
             </div>
             <div>
               <dt>Invoice number</dt>
               <dd>
-                {document.invoice_number ?? "—"}
+                {document.invoice_number ??
+                  "—"}
               </dd>
             </div>
             <div>
@@ -129,6 +167,24 @@ export default async function DocumentPage({
               <dd>
                 {humanize(
                   document.final_resolution_source,
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>Subtotal</dt>
+              <dd>
+                {formatMoney(
+                  document.subtotal,
+                  document.currency,
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>Tax</dt>
+              <dd>
+                {formatMoney(
+                  document.tax_amount,
+                  document.currency,
                 )}
               </dd>
             </div>
@@ -163,7 +219,9 @@ export default async function DocumentPage({
                   {detail.line_items.map(
                     (line) => (
                       <tr key={line.id}>
-                        <td>{line.line_number}</td>
+                        <td>
+                          {line.line_number}
+                        </td>
                         <td>
                           <div className="primary-cell">
                             {line.description}
@@ -180,7 +238,8 @@ export default async function DocumentPage({
                           </div>
                         </td>
                         <td>
-                          {line.quantity ?? "—"}
+                          {line.quantity ??
+                            "—"}
                         </td>
                         <td>
                           {formatMoney(
@@ -281,9 +340,7 @@ export default async function DocumentPage({
               </p>
 
               <div className="mini-meta">
-                <span>
-                  Owner
-                </span>
+                <span>Owner</span>
                 <strong>
                   {detail.review_case
                     .claimed_by_email ??
@@ -299,7 +356,7 @@ export default async function DocumentPage({
                 <div className="panel-kicker">
                   Downstream
                 </div>
-                <h2>Exports & delivery</h2>
+                <h2>Current evidence</h2>
               </div>
             </div>
 
@@ -314,72 +371,42 @@ export default async function DocumentPage({
                 <strong>
                   {detail.notifications.length}
                 </strong>
-                <span>Notifications</span>
+                <span>Deliveries</span>
               </div>
-            </div>
-
-            <div className="activity-list">
-              {detail.exports
-                .slice(0, 3)
-                .map((item) => (
-                  <div
-                    key={item.id}
-                    className="activity-row"
-                  >
-                    <div>
-                      <strong>
-                        {item.export_format}
-                        {" "}
-                        export
-                      </strong>
-                      <span>
-                        {formatDateTime(
-                          item.requested_at,
-                        )}
-                      </span>
-                    </div>
-                    <StatusBadge
-                      value={item.status}
-                    />
-                  </div>
-                ))}
-
-              {detail.notifications
-                .slice(0, 3)
-                .map((item) => (
-                  <div
-                    key={item.id}
-                    className="activity-row"
-                  >
-                    <div>
-                      <strong>
-                        {humanize(item.channel)}
-                      </strong>
-                      <span>
-                        {item.attempt_count}
-                        /
-                        {item.max_attempts}
-                        {" "}
-                        attempts
-                      </span>
-                    </div>
-                    <StatusBadge
-                      value={item.status}
-                    />
-                  </div>
-                ))}
-
-              {detail.exports.length === 0 &&
-                detail.notifications.length ===
-                  0 && (
-                  <p className="muted-copy">
-                    No downstream activity yet.
-                  </p>
-                )}
             </div>
           </article>
         </aside>
       </section>
+
+      <DocumentOperations
+        user={{
+          user_id:
+            profile.user.user_id,
+          email:
+            profile.user.email,
+          role:
+            profile.user.role,
+        }}
+        documentId={documentId}
+        documentStatus={
+          document.status
+        }
+        lineItems={
+          detail.line_items
+        }
+        reviewSnapshot={
+          reviewSnapshot
+        }
+        effectiveInvoice={
+          effectiveInvoice
+        }
+        exports={
+          detail.exports
+        }
+        notifications={
+          detail.notifications
+        }
+      />
     </div>
   );
 }

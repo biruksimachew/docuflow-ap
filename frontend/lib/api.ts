@@ -1,11 +1,20 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import {
+  cookies,
+} from "next/headers";
+import {
+  redirect,
+} from "next/navigation";
 
-import type { AuthenticatedProfile } from "@/lib/types";
+import {
+  ACCESS_TOKEN_COOKIE,
+} from "@/lib/session";
+import type {
+  AuthenticatedProfile,
+} from "@/lib/types";
 
 
 export const SESSION_COOKIE =
-  "docuflow_access_token";
+  ACCESS_TOKEN_COOKIE;
 
 const INTERNAL_API_URL =
   process.env.DOCUFLOW_API_INTERNAL_URL ??
@@ -36,7 +45,7 @@ Promise<string | null> {
 
   return (
     cookieStore.get(
-      SESSION_COOKIE,
+      ACCESS_TOKEN_COOKIE,
     )?.value ?? null
   );
 }
@@ -49,7 +58,9 @@ export async function docuFlowFetch<T>(
   const token = await getAccessToken();
 
   if (!token) {
-    redirect("/login");
+    redirect(
+      "/login?reason=authentication_required",
+    );
   }
 
   const response = await fetch(
@@ -66,7 +77,15 @@ export async function docuFlowFetch<T>(
   );
 
   if (response.status === 401) {
-    redirect("/login");
+    redirect(
+      "/login?reason=session_expired",
+    );
+  }
+
+  if (response.status === 403) {
+    redirect(
+      "/dashboard?reason=access_denied",
+    );
   }
 
   if (!response.ok) {

@@ -213,7 +213,17 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "All DocuFlow AP operations-dashboard checks passed."
+Write-Host "===== INTERACTIVE OPERATIONS WORKSPACE ====="
+
+docker compose exec -T api `
+    python -m scripts.check_interactive_dashboard
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Interactive operations workspace test failed."
+}
+
+Write-Host ""
+Write-Host "All DocuFlow AP dashboard-hardening checks passed."
 
 
 

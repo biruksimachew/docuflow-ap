@@ -1,0 +1,159 @@
+.login-card-wide {
+  width: min(100%, 34rem);
+}
+
+.login-form-stack {
+  display: grid;
+  gap: 1.4rem;
+}
+
+.credential-fields {
+  display: grid;
+  gap: 1rem;
+}
+
+.credential-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.credential-field > span,
+.local-account-picker > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.credential-field input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  padding: 0.85rem 0.95rem;
+}
+
+.credential-field input:focus {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 3px
+    color-mix(
+      in srgb,
+      var(--accent) 16%,
+      transparent
+    );
+  outline: none;
+}
+
+.local-account-picker {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.local-account-picker > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.local-account-picker button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--canvas);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.45rem 0.7rem;
+}
+
+.local-account-picker button:hover,
+.local-account-picker button:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  outline: none;
+}
+
+.login-divider {
+  align-items: center;
+  color: var(--muted);
+  display: grid;
+  font-size: 0.72rem;
+  font-weight: 800;
+  gap: 0.8rem;
+  grid-template-columns:
+    minmax(0, 1fr)
+    auto
+    minmax(0, 1fr);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.login-divider::before,
+.login-divider::after {
+  background: var(--line);
+  content: "";
+  height: 1px;
+}
+
+.login-notice {
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--accent) 28%,
+      var(--line)
+    );
+  border-radius: 0.75rem;
+  background:
+    color-mix(
+      in srgb,
+      var(--accent) 8%,
+      #fff
+    );
+  color: var(--ink);
+  margin-bottom: 1rem;
+  padding: 0.8rem 0.9rem;
+}
+
+.secondary-button {
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  padding: 0.85rem 1rem;
+}
+
+.secondary-button:hover,
+.secondary-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  outline: none;
+}
+
+.full-width-button {
+  width: 100%;
+}
+
+.secondary-button:disabled,
+.primary-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+@media (max-width: 720px) {
+  .login-card-wide {
+    width: 100%;
+  }
+
+  .local-account-picker > div {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,4 +1,5 @@
 import { InvoiceTable } from "@/components/invoice-table";
+import { Pagination } from "@/components/pagination";
 import { docuFlowFetch } from "@/lib/api";
 import type {
   DocumentListResponse,
@@ -13,13 +14,56 @@ const statuses = [
   "FAILED",
 ];
 
+const sortOptions = [
+  {
+    value: "created_at",
+    label: "Created date",
+  },
+  {
+    value: "updated_at",
+    label: "Last updated",
+  },
+  {
+    value: "vendor_name",
+    label: "Vendor",
+  },
+  {
+    value: "invoice_number",
+    label: "Invoice number",
+  },
+  {
+    value: "total_amount",
+    label: "Total amount",
+  },
+];
+
+const PAGE_SIZE = 20;
+
 
 type InvoicePageProps = {
   searchParams: Promise<{
     status?: string;
     search?: string;
+    sort?: string;
+    direction?: string;
+    page?: string;
   }>;
 };
+
+
+function positivePage(
+  value: string | undefined,
+): number {
+  const parsed = Number.parseInt(
+    value ?? "1",
+    10,
+  );
+
+  return Number.isFinite(parsed) &&
+    parsed > 0
+    ? parsed
+    : 1;
+}
 
 
 export const metadata = {
@@ -34,25 +78,82 @@ export default async function InvoicesPage({
 
   const status =
     params.status?.trim().toUpperCase() ?? "";
+
   const search =
     params.search?.trim() ?? "";
+
+  const sort = sortOptions.some(
+    (option) =>
+      option.value === params.sort,
+  )
+    ? params.sort!
+    : "created_at";
+
+  const direction =
+    params.direction === "asc"
+      ? "asc"
+      : "desc";
+
+  const page = positivePage(
+    params.page,
+  );
+
+  const offset =
+    (page - 1) * PAGE_SIZE;
 
   const query = new URLSearchParams();
 
   if (status) {
-    query.set("status", status);
+    query.set(
+      "status",
+      status,
+    );
   }
 
   if (search) {
-    query.set("search", search);
+    query.set(
+      "search",
+      search,
+    );
   }
 
-  query.set("limit", "100");
+  query.set(
+    "sort_by",
+    sort,
+  );
+
+  query.set(
+    "sort_direction",
+    direction,
+  );
+
+  query.set(
+    "limit",
+    String(PAGE_SIZE),
+  );
+
+  query.set(
+    "offset",
+    String(offset),
+  );
 
   const result =
     await docuFlowFetch<DocumentListResponse>(
       `/api/v1/dashboard/documents?${query.toString()}`,
     );
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(
+      result.pagination.total /
+      PAGE_SIZE,
+    ),
+  );
+
+  const safePage = Math.min(
+    page,
+    totalPages,
+  );
 
   return (
     <div className="page-stack">
@@ -63,8 +164,9 @@ export default async function InvoicesPage({
           </div>
           <h1>Invoice queue</h1>
           <p>
-            Search invoices and inspect each
-            document’s current control outcome.
+            Search, sort and inspect every
+            invoice from intake through
+            downstream delivery.
           </p>
         </div>
 
@@ -76,7 +178,7 @@ export default async function InvoicesPage({
 
       <section className="panel">
         <form
-          className="filter-bar"
+          className="filter-bar filter-bar-expanded"
           action="/invoices"
           method="get"
         >
@@ -104,8 +206,8 @@ export default async function InvoicesPage({
           </label>
 
           <label className="select-field">
-            <span className="sr-only">
-              Filter status
+            <span className="filter-label">
+              Status
             </span>
             <select
               name="status"
@@ -127,16 +229,67 @@ export default async function InvoicesPage({
             </select>
           </label>
 
+          <label className="select-field">
+            <span className="filter-label">
+              Sort by
+            </span>
+            <select
+              name="sort"
+              defaultValue={sort}
+            >
+              {sortOptions.map(
+                (option) => (
+                  <option
+                    key={option.value}
+                    value={option.value}
+                  >
+                    {option.label}
+                  </option>
+                ),
+              )}
+            </select>
+          </label>
+
+          <label className="select-field">
+            <span className="filter-label">
+              Direction
+            </span>
+            <select
+              name="direction"
+              defaultValue={direction}
+            >
+              <option value="desc">
+                Descending
+              </option>
+              <option value="asc">
+                Ascending
+              </option>
+            </select>
+          </label>
+
           <button
             className="filter-button"
             type="submit"
           >
-            Apply filters
+            Apply
           </button>
         </form>
 
         <InvoiceTable
           documents={result.documents}
+        />
+
+        <Pagination
+          basePath="/invoices"
+          currentPage={safePage}
+          pageSize={PAGE_SIZE}
+          total={result.pagination.total}
+          params={{
+            status,
+            search,
+            sort,
+            direction,
+          }}
         />
       </section>
     </div>

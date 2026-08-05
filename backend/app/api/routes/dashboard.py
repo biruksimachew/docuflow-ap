@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import (
@@ -52,6 +52,25 @@ REVIEW_STATUSES = {
     "RESOLVED_APPROVED",
     "RESOLVED_REJECTED",
     "CANCELLED",
+}
+
+
+DOCUMENT_SORT_COLUMNS = {
+    "created_at": "d.created_at",
+    "updated_at": "d.updated_at",
+    "vendor_name": "coalesce(h.vendor_name, '')",
+    "invoice_number": "coalesce(h.invoice_number, '')",
+    "total_amount": "h.total_amount",
+}
+
+REVIEW_SORT_COLUMNS = {
+    "priority": (
+        "case when rc.priority = 'HIGH' "
+        "then 0 else 1 end"
+    ),
+    "created_at": "rc.created_at",
+    "updated_at": "rc.updated_at",
+    "total_amount": "h.total_amount",
 }
 
 
@@ -203,6 +222,21 @@ async def dashboard_documents(
         default=None,
         max_length=120,
     ),
+    sort_by: Literal[
+        "created_at",
+        "updated_at",
+        "vendor_name",
+        "invoice_number",
+        "total_amount",
+    ] = Query(
+        default="created_at",
+    ),
+    sort_direction: Literal[
+        "asc",
+        "desc",
+    ] = Query(
+        default="desc",
+    ),
     limit: int = Query(
         default=25,
         ge=1,
@@ -312,7 +346,10 @@ async def dashboard_documents(
             on h.invoice_extraction_id =
                 d.latest_invoice_extraction_id
         {where_clause}
-        order by d.created_at desc
+        order by
+            {DOCUMENT_SORT_COLUMNS[sort_by]}
+            {sort_direction},
+            d.id {sort_direction}
         limit :limit
         offset :offset
         """
@@ -356,6 +393,8 @@ async def dashboard_documents(
                 normalized_search
                 or None
             ),
+            "sort_by": sort_by,
+            "sort_direction": sort_direction,
         },
         "pagination": {
             "limit": limit,
@@ -619,6 +658,32 @@ async def dashboard_reviews(
         default=None,
         alias="status",
     ),
+    search: str | None = Query(
+        default=None,
+        max_length=120,
+    ),
+    owner: Literal[
+        "ALL",
+        "UNCLAIMED",
+        "MINE",
+        "CLAIMED",
+    ] = Query(
+        default="ALL",
+    ),
+    sort_by: Literal[
+        "priority",
+        "created_at",
+        "updated_at",
+        "total_amount",
+    ] = Query(
+        default="priority",
+    ),
+    sort_direction: Literal[
+        "asc",
+        "desc",
+    ] = Query(
+        default="asc",
+    ),
     limit: int = Query(
         default=25,
         ge=1,
@@ -659,11 +724,48 @@ async def dashboard_reviews(
             },
         )
 
+    normalized_search = (
+        search.strip()
+        if search
+        else ""
+    )
+
     where_clause = """
         where
             (
                 :status_filter = ''
                 or rc.status = :status_filter
+            )
+            and (
+                :search = ''
+                or d.original_filename ilike
+                    '%' || :search || '%'
+                or coalesce(
+                    h.vendor_name,
+                    ''
+                ) ilike
+                    '%' || :search || '%'
+                or coalesce(
+                    h.invoice_number,
+                    ''
+                ) ilike
+                    '%' || :search || '%'
+            )
+            and (
+                :owner = 'ALL'
+                or (
+                    :owner = 'UNCLAIMED'
+                    and rc.claimed_by_user_id is null
+                )
+                or (
+                    :owner = 'CLAIMED'
+                    and rc.claimed_by_user_id is not null
+                )
+                or (
+                    :owner = 'MINE'
+                    and rc.claimed_by_user_id =
+                        cast(:current_user_id as uuid)
+                )
             )
     """
 
@@ -671,6 +773,11 @@ async def dashboard_reviews(
         f"""
         select count(*)
         from public.review_cases rc
+        join public.documents d
+            on d.id = rc.document_id
+        left join public.invoice_headers h
+            on h.invoice_extraction_id =
+                d.latest_invoice_extraction_id
         {where_clause}
         """
     )
@@ -707,12 +814,10 @@ async def dashboard_reviews(
                 d.latest_invoice_extraction_id
         {where_clause}
         order by
-            case
-                when rc.priority = 'HIGH'
-                then 0
-                else 1
-            end,
-            rc.created_at asc
+            {REVIEW_SORT_COLUMNS[sort_by]}
+            {sort_direction},
+            rc.created_at asc,
+            rc.id asc
         limit :limit
         offset :offset
         """
@@ -720,6 +825,11 @@ async def dashboard_reviews(
 
     parameters = {
         "status_filter": normalized_status,
+        "search": normalized_search,
+        "owner": owner,
+        "current_user_id": (
+            current_user.user_id
+        ),
         "limit": limit,
         "offset": offset,
     }
@@ -750,7 +860,14 @@ async def dashboard_reviews(
             "status": (
                 normalized_status
                 or None
-            )
+            ),
+            "search": (
+                normalized_search
+                or None
+            ),
+            "owner": owner,
+            "sort_by": sort_by,
+            "sort_direction": sort_direction,
         },
         "pagination": {
             "limit": limit,

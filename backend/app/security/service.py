@@ -3,6 +3,9 @@ from __future__ import annotations
 from uuid import uuid4
 
 from fastapi import Request
+from starlette.concurrency import (
+    run_in_threadpool,
+)
 
 from app.security.errors import (
     AuthenticationError,
@@ -88,8 +91,9 @@ async def authenticate_request(
         )
 
     try:
-        decoded = decode_supabase_access_token(
-            token.strip()
+        decoded = await run_in_threadpool(
+            decode_supabase_access_token,
+            token.strip(),
         )
     except AuthenticationError as exc:
         await _safe_audit(

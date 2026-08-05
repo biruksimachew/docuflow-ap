@@ -122,7 +122,6 @@ services:
       minio-init:
         condition: service_completed_successfully
 
-
   frontend:
     build:
       context: ./frontend
@@ -135,6 +134,7 @@ services:
     environment:
       DOCUFLOW_API_INTERNAL_URL: http://api:8000
       DOCUFLOW_DEMO_AUTH_ENABLED: ${DOCUFLOW_DEMO_AUTH_ENABLED:-true}
+      DOCUFLOW_SESSION_REFRESH_WINDOW_SECONDS: ${DOCUFLOW_SESSION_REFRESH_WINDOW_SECONDS:-60}
       NEXT_TELEMETRY_DISABLED: "1"
     command:
       - npm
@@ -144,10 +144,36 @@ services:
       - --hostname
       - 0.0.0.0
     ports:
-      - "${FRONTEND_PORT:-3000}:3000"
+      - "${FRONTEND_PORT:-31000}:3000"
     volumes:
       - ./frontend:/app
       - docuflow_frontend_node_modules:/app/node_modules
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      api:
+        condition: service_started
+
+  frontend-production:
+    profiles:
+      - production
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+    container_name: docuflow-frontend-production
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DOCUFLOW_API_INTERNAL_URL: http://api:8000
+      DOCUFLOW_DEMO_AUTH_ENABLED: ${DOCUFLOW_DEMO_AUTH_ENABLED:-false}
+      DOCUFLOW_SESSION_REFRESH_WINDOW_SECONDS: ${DOCUFLOW_SESSION_REFRESH_WINDOW_SECONDS:-60}
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports:
+      - "${FRONTEND_PRODUCTION_PORT:-31001}:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       api:
         condition: service_started

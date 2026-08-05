@@ -1,7 +1,6 @@
-import { redirect } from "next/navigation";
-
-import { LoginForm } from "@/components/login-form";
-import { getAccessToken } from "@/lib/api";
+import {
+  LoginForm,
+} from "@/components/login-form";
 
 
 export const metadata = {
@@ -9,12 +8,48 @@ export const metadata = {
 };
 
 
-export default async function LoginPage() {
-  const token = await getAccessToken();
+type LoginPageProps = {
+  searchParams: Promise<{
+    reason?: string;
+  }>;
+};
 
-  if (token) {
-    redirect("/dashboard");
-  }
+
+const reasonMessages: Record<
+  string,
+  string
+> = {
+  authentication_required:
+    "Sign in to open the operations workspace.",
+  session_expired:
+    "Your session expired. Sign in again.",
+};
+
+
+export default async function LoginPage({
+  searchParams,
+}: LoginPageProps) {
+  const params = await searchParams;
+
+  const demoEnabled =
+    (
+      process.env
+        .DOCUFLOW_DEMO_AUTH_ENABLED ??
+      "false"
+    ).toLowerCase() === "true";
+
+  const localEnvironment =
+    (
+      process.env.APP_ENV ??
+      "local"
+    ).toLowerCase() === "local";
+
+  const notice =
+    params.reason
+      ? reasonMessages[
+          params.reason
+        ]
+      : null;
 
   return (
     <main className="login-page">
@@ -68,18 +103,33 @@ export default async function LoginPage() {
       </section>
 
       <section className="login-panel">
-        <div className="login-card">
+        <div className="login-card login-card-wide">
           <div className="eyebrow">
-            Portfolio environment
+            Secure operations access
           </div>
-          <h2>Choose a demo role</h2>
+          <h2>Sign in to DocuFlow</h2>
           <p className="login-intro">
-            Each role is backed by the same
-            database-authoritative RBAC model
-            used by the API.
+            Supabase authenticates the user.
+            The API then resolves the
+            database-authoritative DocuFlow
+            role for every protected request.
           </p>
 
-          <LoginForm />
+          {notice && (
+            <div
+              className="login-notice"
+              role="status"
+            >
+              {notice}
+            </div>
+          )}
+
+          <LoginForm
+            demoEnabled={demoEnabled}
+            localEnvironment={
+              localEnvironment
+            }
+          />
         </div>
       </section>
     </main>

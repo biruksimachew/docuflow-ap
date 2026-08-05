@@ -1,4 +1,4 @@
-﻿# Python
+# Python
 __pycache__/
 *.py[cod]
 *.pyd
@@ -16,6 +16,7 @@ node_modules/
 out/
 dist/
 coverage/
+*.tsbuildinfo
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
@@ -53,3 +54,16 @@ milestone_10a_frontend_preflight.ps1
 milestone_10a_operations_dashboard.ps1
 milestone_10a_operations_dashboard_fixed.ps1
 milestone_10a_recover_partial_install.ps1
+milestone10b_preflight.txt
+milestone10b_implementation_snapshot.zip
+milestone10b_snapshot_*/
+milestone_10b_dashboard_hardening_preflight.ps1
+milestone_10b_implementation_snapshot.ps1
+milestone_10b_auth_session_hardening.ps1
+milestone10b2_interactive_workspace_snapshot.zip
+milestone10b2_snapshot_*/
+milestone_10b2_interactive_workspace_snapshot.ps1
+milestone_10b_auth_redirect_diagnostic.ps1
+milestone_10b_es256_login_style_fix.ps1
+load_local_supabase_credentials.ps1
+milestone_10b_interactive_workspace.ps1

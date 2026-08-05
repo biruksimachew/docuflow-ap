@@ -6,8 +6,13 @@ import {
 } from "next/server";
 
 import {
-  SESSION_COOKIE,
-} from "@/lib/api";
+  ACCESS_TOKEN_COOKIE,
+  REFRESH_TOKEN_COOKIE,
+  SESSION_SOURCE_COOKIE,
+  accessCookieOptions,
+  refreshCookieOptions,
+  sourceCookieOptions,
+} from "@/lib/session";
 import type {
   AppRole,
 } from "@/lib/types";
@@ -97,9 +102,12 @@ export async function POST(
   }
 
   const user = demoUsers[role];
+
   const now = Math.floor(
     Date.now() / 1000,
   );
+
+  const expiresIn = 3600;
 
   const token = await new SignJWT({
     email: user.email,
@@ -115,28 +123,44 @@ export async function POST(
         "authenticated",
     )
     .setIssuedAt(now)
-    .setExpirationTime(now + 3600)
+    .setExpirationTime(
+      now + expiresIn,
+    )
     .sign(
-      new TextEncoder().encode(secret),
+      new TextEncoder().encode(
+        secret,
+      ),
     );
 
   const response = NextResponse.json({
     authenticated: true,
     role,
+    session_source: "demo",
   });
 
   response.cookies.set(
-    SESSION_COOKIE,
+    ACCESS_TOKEN_COOKIE,
     token,
-    {
-      httpOnly: true,
-      sameSite: "lax",
-      secure:
-        process.env.NODE_ENV ===
-        "production",
-      path: "/",
-      maxAge: 3600,
-    },
+    accessCookieOptions(
+      expiresIn,
+    ),
+  );
+  response.cookies.set(
+    REFRESH_TOKEN_COOKIE,
+    "",
+    refreshCookieOptions(0),
+  );
+  response.cookies.set(
+    SESSION_SOURCE_COOKIE,
+    "demo",
+    sourceCookieOptions(
+      expiresIn,
+    ),
+  );
+
+  response.headers.set(
+    "Cache-Control",
+    "no-store",
   );
 
   return response;
