@@ -1,4 +1,4 @@
-# ADR 0015: Interactive Operations Workspace
+# ADR 0016: Interactive Operations Workspace
 
 ## Status
 

@@ -67,3 +67,10 @@ milestone_10b_auth_redirect_diagnostic.ps1
 milestone_10b_es256_login_style_fix.ps1
 load_local_supabase_credentials.ps1
 milestone_10b_interactive_workspace.ps1
+
+
+# DocuFlow release workspace
+.docuflow-release-snapshot-*/
+docuflow_release_readiness_snapshot.zip
+docuflow_release_readiness_snapshot.ps1
+frontend/tsconfig.tsbuildinfo
