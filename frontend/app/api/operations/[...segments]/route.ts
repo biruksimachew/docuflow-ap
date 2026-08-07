@@ -31,6 +31,21 @@ type RouteContext = {
 };
 
 
+function firstForwardedValue(
+  value: string | null,
+): string | null {
+  if (!value) {
+    return null;
+  }
+
+  return (
+    value
+      .split(",")[0]
+      ?.trim() || null
+  );
+}
+
+
 function sameOrigin(
   request: NextRequest,
 ): boolean {
@@ -42,7 +57,46 @@ function sameOrigin(
     return true;
   }
 
-  return origin === request.nextUrl.origin;
+  const forwardedHost =
+    firstForwardedValue(
+      request.headers.get(
+        "x-forwarded-host",
+      ),
+    );
+
+  const host =
+    forwardedHost ??
+    request.headers.get("host");
+
+  if (!host) {
+    return false;
+  }
+
+  const forwardedProtocol =
+    firstForwardedValue(
+      request.headers.get(
+        "x-forwarded-proto",
+      ),
+    );
+
+  const protocol =
+    forwardedProtocol ??
+    request.nextUrl.protocol.replace(
+      /:$/,
+      "",
+    );
+
+  try {
+    const originUrl = new URL(origin);
+
+    return (
+      originUrl.host === host &&
+      originUrl.protocol ===
+        `${protocol}:`
+    );
+  } catch {
+    return false;
+  }
 }
 
 

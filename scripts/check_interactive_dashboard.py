@@ -119,6 +119,14 @@ def operation(
 ) -> httpx.Response:
     request_kwargs: dict = {
         "timeout": 60,
+        "headers": {
+            "Origin": (
+                "http://127.0.0.1:31000"
+            ),
+            "Host": (
+                "127.0.0.1:31000"
+            ),
+        },
     }
 
     if payload is not None:
