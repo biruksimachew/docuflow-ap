@@ -75,3 +75,8 @@ docuflow_release_readiness_snapshot.zip
 docuflow_release_readiness_snapshot.ps1
 frontend/tsconfig.tsbuildinfo
 frontend/next-env.d.ts
+
+# Local frontend build diagnostics
+frontend-debug-build.txt
+frontend-release-build-normal.txt
+frontend-release-build-webpack.txt
