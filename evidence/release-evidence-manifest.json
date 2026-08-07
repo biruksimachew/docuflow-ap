@@ -1,0 +1,32 @@
+{
+    "project":  "DocuFlow AP",
+    "disclosure":  "Fictional simulated-client portfolio system using synthetic or sanitized data.",
+    "captured_at":  "2026-08-08T00:10:55+03:00",
+    "branch":  "main",
+    "commit":  "6d202048594b8e450dc5e4bd187e3a021486072b",
+    "automated_evidence":  {
+                               "compose_services":  "test-output/compose-services.txt",
+                               "frontend_typecheck":  "test-output/frontend-typecheck.txt",
+                               "frontend_production_build":  "test-output/frontend-production-build.txt",
+                               "release_documentation_check":  "test-output/release-documentation-check.txt",
+                               "pytest_full":  "test-output/pytest-full.txt",
+                               "dashboard_api":  "test-output/dashboard-api-check.txt",
+                               "frontend_authentication":  "test-output/frontend-dashboard-check.txt",
+                               "interactive_workspace":  "test-output/interactive-dashboard-check.txt",
+                               "smoke_suite":  "test-output/smoke-test-output.txt",
+                               "git_hygiene":  "test-output/git-secret-hygiene.txt"
+                           },
+    "required_screenshots":  [
+                                 "screenshots/01-login-and-roles.png",
+                                 "screenshots/02-operations-overview.png",
+                                 "screenshots/03-invoice-queue.png",
+                                 "screenshots/04-invoice-extraction-evidence.png",
+                                 "screenshots/05-control-outcomes.png",
+                                 "screenshots/06-review-ownership.png",
+                                 "screenshots/07-correction-and-rerun.png",
+                                 "screenshots/08-accounting-export.png",
+                                 "screenshots/09-delivery-attempts.png",
+                                 "screenshots/10-audit-timeline.png"
+                             ],
+    "recording":  "recordings/docuflow-ap-demo.mp4"
+}
